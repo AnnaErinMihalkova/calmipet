@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { authService, validateEmail } from '../services/auth';
+import CircularLogo from './CircularLogo';
 import './Login.css';
 
 interface LoginProps {
   onNavigateToSignup?: () => void;
+  onAuthSuccess?: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
+const Login: React.FC<LoginProps> = ({ onNavigateToSignup, onAuthSuccess }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -14,6 +16,7 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -60,12 +63,14 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
       const response = await authService.login(formData);
       setSuccessMessage('Login successful! Redirecting...');
       console.log('Login successful:', response);
-      // Here you would typically redirect to the main app or store the user
-      // For now, we'll just show a success message
+      // Navigate to home if provided, otherwise fallback to root
       setTimeout(() => {
-        // Redirect logic would go here
-        window.location.href = '/';
-      }, 1500);
+        if (onAuthSuccess) {
+          onAuthSuccess();
+        } else {
+          window.location.href = '/';
+        }
+      }, 1000);
     } catch (error: any) {
       if (error.response?.data) {
         const errorData = error.response.data;
@@ -92,52 +97,7 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
     <div className="login-container">
       <div className="login-card">
         <div className="logo-container">
-          <svg
-            className="logo"
-            viewBox="0 0 200 200"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            {/* Pet head */}
-            <circle cx="100" cy="80" r="50" fill="#4CAF50" opacity="0.9" />
-            {/* Pet ears */}
-            <ellipse cx="70" cy="50" rx="15" ry="25" fill="#4CAF50" />
-            <ellipse cx="130" cy="50" rx="15" ry="25" fill="#4CAF50" />
-            {/* Inner ears */}
-            <ellipse cx="70" cy="50" rx="8" ry="15" fill="#66BB6A" />
-            <ellipse cx="130" cy="50" rx="8" ry="15" fill="#66BB6A" />
-            {/* Eyes */}
-            <circle cx="85" cy="75" r="8" fill="#FFFFFF" />
-            <circle cx="115" cy="75" r="8" fill="#FFFFFF" />
-            <circle cx="85" cy="75" r="4" fill="#333333" />
-            <circle cx="115" cy="75" r="4" fill="#333333" />
-            {/* Nose */}
-            <ellipse cx="100" cy="90" rx="6" ry="5" fill="#333333" />
-            {/* Mouth */}
-            <path
-              d="M 100 95 Q 90 100 85 95"
-              stroke="#333333"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 100 95 Q 110 100 115 95"
-              stroke="#333333"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-            {/* Heart symbol */}
-            <g transform="translate(100, 130)">
-              <path
-                d="M 0 -10 C -8 -18, -18 -18, -18 -8 C -18 2, 0 20, 0 20 C 0 20, 18 2, 18 -8 C 18 -18, 8 -18, 0 -10 Z"
-                fill="#FF6B6B"
-              />
-            </g>
-            {/* Decorative circles */}
-            <circle cx="50" cy="140" r="8" fill="#81C784" opacity="0.6" />
-            <circle cx="150" cy="140" r="8" fill="#81C784" opacity="0.6" />
-          </svg>
+          <CircularLogo size={120} />
           <h1 className="logo-text">CalmiPet</h1>
           <p className="logo-tagline">Welcome Back!</p>
         </div>
@@ -164,16 +124,26 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              placeholder="Enter your password"
-              className={errors.password ? 'error' : ''}
-            />
+            <div className="input-wrap">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                placeholder="Enter your password"
+                className={errors.password ? 'error' : ''}
+              />
+              <button
+                type="button"
+                className="visibility-btn"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
 

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { authService, validateEmail } from '../services/auth';
+import CircularLogo from './CircularLogo';
+import PasswordStrength from './PasswordStrength';
 import './SignUp.css';
 
 interface SignUpProps {
   onNavigateToLogin?: () => void;
+  onAuthSuccess?: () => void;
 }
 
-const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin }) => {
+const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -16,6 +19,8 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin }) => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -49,6 +54,16 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin }) => {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
+    } else {
+      // Check password strength requirements
+      const hasUpperCase = /[A-Z]/.test(formData.password);
+      const hasLowerCase = /[a-z]/.test(formData.password);
+      const hasNumber = /[0-9]/.test(formData.password);
+      const hasSpecial = /[^a-zA-Z0-9]/.test(formData.password);
+      
+      if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecial) {
+        newErrors.password = 'Password must include uppercase, lowercase, number, and special character';
+      }
     }
 
     if (!formData.confirmPassword) {
@@ -78,10 +93,14 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin }) => {
       });
       setSuccessMessage('Account created successfully! Redirecting...');
       console.log('Sign up successful:', response);
-      // Here you would typically redirect to the main app or login
+      // Navigate to home if provided, otherwise fallback to root
       setTimeout(() => {
-        window.location.href = '/';
-      }, 1500);
+        if (onAuthSuccess) {
+          onAuthSuccess();
+        } else {
+          window.location.href = '/';
+        }
+      }, 1000);
     } catch (error: any) {
       if (error.response?.data) {
         const errorData = error.response.data;
@@ -108,52 +127,7 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin }) => {
     <div className="signup-container">
       <div className="signup-card">
         <div className="logo-container">
-          <svg
-            className="logo"
-            viewBox="0 0 200 200"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            {/* Pet head */}
-            <circle cx="100" cy="80" r="50" fill="#4CAF50" opacity="0.9" />
-            {/* Pet ears */}
-            <ellipse cx="70" cy="50" rx="15" ry="25" fill="#4CAF50" />
-            <ellipse cx="130" cy="50" rx="15" ry="25" fill="#4CAF50" />
-            {/* Inner ears */}
-            <ellipse cx="70" cy="50" rx="8" ry="15" fill="#66BB6A" />
-            <ellipse cx="130" cy="50" rx="8" ry="15" fill="#66BB6A" />
-            {/* Eyes */}
-            <circle cx="85" cy="75" r="8" fill="#FFFFFF" />
-            <circle cx="115" cy="75" r="8" fill="#FFFFFF" />
-            <circle cx="85" cy="75" r="4" fill="#333333" />
-            <circle cx="115" cy="75" r="4" fill="#333333" />
-            {/* Nose */}
-            <ellipse cx="100" cy="90" rx="6" ry="5" fill="#333333" />
-            {/* Mouth */}
-            <path
-              d="M 100 95 Q 90 100 85 95"
-              stroke="#333333"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 100 95 Q 110 100 115 95"
-              stroke="#333333"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-            {/* Heart symbol */}
-            <g transform="translate(100, 130)">
-              <path
-                d="M 0 -10 C -8 -18, -18 -18, -18 -8 C -18 2, 0 20, 0 20 C 0 20, 18 2, 18 -8 C 18 -18, 8 -18, 0 -10 Z"
-                fill="#FF6B6B"
-              />
-            </g>
-            {/* Decorative circles */}
-            <circle cx="50" cy="140" r="8" fill="#81C784" opacity="0.6" />
-            <circle cx="150" cy="140" r="8" fill="#81C784" opacity="0.6" />
-          </svg>
+          <CircularLogo size={120} />
           <h1 className="logo-text">CalmiPet</h1>
           <p className="logo-tagline">Your Pet's Wellness Companion</p>
         </div>
@@ -195,31 +169,52 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin }) => {
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              placeholder="Create a password"
-              className={errors.password ? 'error' : ''}
-            />
+            <div className="input-wrap">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                placeholder="Create a password"
+                className={errors.password ? 'error' : ''}
+              />
+              <button
+                type="button"
+                className="visibility-btn"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            {formData.password && <PasswordStrength password={formData.password} />}
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
 
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirm Password</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              placeholder="Confirm your password"
-              className={errors.confirmPassword ? 'error' : ''}
-            />
+            <div className="input-wrap">
+              <input
+                type={showConfirm ? 'text' : 'password'}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                placeholder="Confirm your password"
+                className={errors.confirmPassword ? 'error' : ''}
+              />
+              <button
+                type="button"
+                className="visibility-btn"
+                onClick={() => setShowConfirm((s) => !s)}
+                aria-label={showConfirm ? 'Hide password' : 'Show password'}
+              >
+                {showConfirm ? 'Hide' : 'Show'}
+              </button>
+            </div>
             {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
           </div>
 

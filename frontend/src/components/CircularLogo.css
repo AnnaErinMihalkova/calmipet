@@ -1,0 +1,31 @@
+.circular-logo {
+  position: relative;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: float 3s ease-in-out infinite;
+  filter: drop-shadow(0 4px 12px var(--logo-shadow));
+}
+
+.logo-svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .circular-logo {
+    filter: drop-shadow(0 2px 8px var(--logo-shadow));
+  }
+}
+

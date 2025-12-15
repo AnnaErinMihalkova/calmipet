@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { readingService, Reading } from '../services/api';
+import './ReadingList.css';
 
 const ReadingList: React.FC = () => {
   const [readings, setReadings] = useState<Reading[]>([]);
@@ -41,43 +42,29 @@ const ReadingList: React.FC = () => {
     }
   };
 
-  if (loading) return <div>Loading readings...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (loading) return <div className="reading-list-container"><div className="loading">Loading readings...</div></div>;
+  if (error) return <div className="reading-list-container"><div className="error-message">{error}</div></div>;
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>CalmiPet Wellness Readings</h1>
+    <div className="reading-list-container">
+      <h1 className="reading-list-title">CalmiPet Wellness Readings</h1>
       <button 
         onClick={handleCreateReading}
-        style={{
-          padding: '10px 20px',
-          backgroundColor: '#4CAF50',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          marginBottom: '20px'
-        }}
+        className="add-reading-button"
       >
         Add Test Reading
       </button>
       
       {readings.length === 0 ? (
-        <p>No readings available. Click "Add Test Reading" to create one.</p>
+        <p className="no-readings">No readings available. Click "Add Test Reading" to create one.</p>
       ) : (
-        <div>
-          <h2>Recent Readings</h2>
+        <div className="readings-grid">
+          <h2 className="readings-section-title">Recent Readings</h2>
           {readings.map((reading) => (
-            <div key={reading.id} style={{
-              border: '1px solid #ddd',
-              padding: '15px',
-              marginBottom: '10px',
-              borderRadius: '8px',
-              backgroundColor: '#f9f9f9'
-            }}>
-              <p><strong>Date:</strong> {new Date(reading.ts).toLocaleString()}</p>
-              <p><strong>Heart Rate:</strong> {reading.hr_bpm} BPM</p>
-              <p><strong>HRV:</strong> {reading.hrv_rmssd} ms</p>
+            <div key={reading.id} className="reading-card">
+              <p className="reading-item"><strong>Date:</strong> {new Date(reading.ts).toLocaleString()}</p>
+              <p className="reading-item"><strong>Heart Rate:</strong> {reading.hr_bpm} BPM</p>
+              <p className="reading-item"><strong>HRV:</strong> {reading.hrv_rmssd} ms</p>
             </div>
           ))}
         </div>

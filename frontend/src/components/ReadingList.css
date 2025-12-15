@@ -1,0 +1,114 @@
+.reading-list-container {
+  padding: 40px 20px;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.reading-list-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.add-reading-button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-bottom: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
+}
+
+.add-reading-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-light) 100%);
+}
+
+.add-reading-button:active {
+  transform: translateY(0);
+}
+
+.no-readings {
+  color: var(--text-secondary);
+  font-size: 16px;
+  margin-top: 20px;
+}
+
+.readings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.readings-section-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.reading-card {
+  border: 1px solid var(--border-color);
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.reading-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.reading-item {
+  margin: 8px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.reading-item strong {
+  color: var(--accent-color);
+  margin-right: 8px;
+}
+
+.loading,
+.error-message {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+
+.error-message {
+  color: var(--error-color);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .reading-list-container {
+    padding: 20px 16px;
+  }
+
+  .reading-list-title {
+    font-size: 24px;
+  }
+
+  .readings-section-title {
+    font-size: 20px;
+  }
+}
+
