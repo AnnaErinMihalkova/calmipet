@@ -6,6 +6,7 @@ import SignUp from './components/SignUp';
 import Login from './components/Login';
 import OnboardingInfo from './components/OnboardingInfo';
 import './App.css';
+import Dashboard from './components/Dashboard';
 
 type TimelineItem = {
   title: string;
@@ -73,12 +74,12 @@ const timeline: TimelineItem[] = [
 ];
 
 function App() {
-  const [currentPage, setCurrentPage] = React.useState<'home' | 'signup' | 'login' | 'onboarding'>('home');
+  const [currentPage, setCurrentPage] = React.useState<'home' | 'signup' | 'login' | 'onboarding' | 'readings' | 'dashboard' | 'progress'>('home');
 
   React.useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    if (hash === 'login' || hash === 'signup' || hash === 'home' || hash === 'onboarding') {
-      setCurrentPage(hash as 'home' | 'signup' | 'login' | 'onboarding');
+    if (hash === 'login' || hash === 'signup' || hash === 'home' || hash === 'onboarding' || hash === 'readings' || hash === 'dashboard' || hash === 'progress') {
+      setCurrentPage(hash as 'home' | 'signup' | 'login' | 'onboarding' | 'readings' | 'dashboard' | 'progress');
     }
   }, []);
 
@@ -87,10 +88,28 @@ function App() {
   }, [currentPage]);
 
   const handleSignupSuccess = () => setCurrentPage('onboarding');
-  const handleLoginSuccess = () => setCurrentPage('home');
+  const handleLoginSuccess = () => setCurrentPage('onboarding');
   const goHome = () => setCurrentPage('home');
   const goLogin = () => setCurrentPage('login');
   const goSignup = () => setCurrentPage('signup');
+  const goReadings = () => setCurrentPage('readings');
+  const goDashboard = () => setCurrentPage('dashboard');
+  const goProgress = () => setCurrentPage('progress');
+
+  const IconBtn: React.FC<{ onClick: () => void; path: string }> = ({ onClick, path }) => (
+    <button className="ghost-cta" onClick={onClick} aria-label="nav" style={{ padding: 10 }}>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d={path} stroke="var(--text-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+    </button>
+  );
+
+  const BottomNav: React.FC = () => (
+    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, padding: 12, background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-color)' }}>
+      <IconBtn onClick={goHome} path="M3 11l9-8 9 8v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z" />
+      <IconBtn onClick={goDashboard} path="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7z" />
+      <IconBtn onClick={goReadings} path="M4 19h16M4 12h16M4 5h16" />
+      <IconBtn onClick={goProgress} path="M3 17l5-5 4 4 8-8" />
+    </div>
+  );
 
   if (currentPage === 'signup') {
     return (
@@ -125,10 +144,89 @@ function App() {
       <ThemeProvider>
         <div className="App">
           <ThemeToggle />
-          <OnboardingInfo onComplete={goHome} />
+          <OnboardingInfo onComplete={goDashboard} />
           <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goHome} role="button">
             Skip for now →
           </div>
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  if (currentPage === 'readings') {
+    const ReadingList = require('./components/ReadingList').default;
+    return (
+      <ThemeProvider>
+        <div className="App">
+          <ThemeToggle />
+          <ReadingList />
+          <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goHome} role="button">
+            ← Back to Home
+          </div>
+          <BottomNav />
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  if (currentPage === 'dashboard') {
+    return (
+      <ThemeProvider>
+        <div className="App">
+          <ThemeToggle />
+          <Dashboard />
+          <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goHome} role="button">
+            ← Back to Home
+          </div>
+          <BottomNav />
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  if (currentPage === 'progress') {
+    const ProgressView: React.FC = () => {
+      const [streak, setStreak] = React.useState<any>(null);
+      React.useEffect(() => {
+        const { wellnessService } = require('./services/api');
+        wellnessService.getStreak().then(setStreak).catch(() => setStreak(null));
+      }, []);
+      return (
+        <div className="content" style={{ paddingBottom: 80 }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 18, padding: 20, boxShadow: 'var(--shadow-lg)', marginBottom: 12 }}>
+            <div style={{ fontSize: 24, fontWeight: 800 }}>Streak</div>
+            <div style={{ color: 'var(--text-secondary)' }}>{streak ? `${streak.current_streak} days` : 'Loading…'}</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+            <div className="card">
+              <h3>Evolution Progress</h3>
+              <div style={{ height: 10, background: 'var(--border-color)', borderRadius: 6 }}>
+                <div style={{ width: '75%', height: 10, borderRadius: 6, background: 'linear-gradient(90deg, var(--accent-color), var(--accent-hover))' }} />
+              </div>
+              <p style={{ marginTop: 8 }}>Perform more sessions to evolve</p>
+            </div>
+            <div className="card">
+              <h3>Daily Rituals</h3>
+              <ul style={{ paddingLeft: 16, margin: 0 }}>
+                <li>Morning biofeedback ✓</li>
+                <li>Evening reflection •</li>
+              </ul>
+            </div>
+            <div className="card">
+              <h3>Milestones</h3>
+              <p>Early Riser, Zen Master unlocked</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <ThemeProvider>
+        <div className="App">
+          <ThemeToggle />
+          <ProgressView />
+          <BottomNav />
         </div>
       </ThemeProvider>
     );
@@ -139,83 +237,31 @@ function App() {
       <div className="App">
         <ThemeToggle />
 
-        <header className="hero">
-          <div className="hero-content">
-            <div className="pill">HeartBuddy</div>
-            <h1>Your stress-aware companion</h1>
-            <p className="hero-subtitle">
-              A caring virtual pet that notices when you’re tense, breathes with you,
-              and celebrates every calm moment you create together.
-            </p>
-            <div className="hero-actions">
-              <a className="primary-cta" href="#signup" onClick={(e) => { e.preventDefault(); goSignup(); }}>
-                Start calming
-              </a>
-              <a className="ghost-cta" href="#login" onClick={(e) => { e.preventDefault(); goLogin(); }}>
-                I already have an account
-              </a>
-            </div>
-            <div className="meta-row">
-              <span>Guided breathing</span>
-              <span>Moodful pet reactions</span>
-              <span>Daily calm streaks</span>
-              <span>Gentle rewards</span>
-            </div>
+        <div className="app-shell">
+          <div className="screen-header">
+            <div style={{ fontSize: 24 }}>🐾</div>
+            <div className="skip" onClick={goDashboard}>Skip</div>
           </div>
-          <div className="hero-visual">
-            <CircularLogo size={220} />
-            <div className="callout">
-              <strong>Feel-seen buddy</strong>
-              <p>Your pet mirrors your calm and worry, nudging you to breathe and reset.</p>
-            </div>
-          </div>
-        </header>
 
-        <main className="content">
-          <section className="card-grid">
-            {featureHighlights.map((feature) => (
-              <div className="card" key={feature.title}>
-                <h3>{feature.title}</h3>
-                <p>{feature.description}</p>
+          <div className="onboarding-card">
+            <div className="onboarding-visual">
+              <div className="pet">
+                <div style={{ fontSize: 90 }}>🐰</div>
               </div>
-            ))}
-          </section>
-
-          <section className="panel">
-            <h2>What you’ll feel</h2>
-            <ul className="bullet-grid">
-              {feels.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="panel">
-            <h2>Daily flow</h2>
-            <ul className="bullet-grid">
-              {dailyFlow.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="panel">
-            <h2>3-month journey</h2>
-            <div className="timeline">
-              {timeline.map((block) => (
-                <div className="timeline-card" key={block.title}>
-                  <h3>{block.title}</h3>
-                  <ul>
-                    {block.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
             </div>
-          </section>
+            <div className="onboarding-title">Relax with Rocco</div>
+            <div className="onboarding-subtitle">Your clever raccoon companion for finding calm in the chaos.</div>
+            <div className="progress-dots">
+              <div className="dot active" />
+              <div className="dot" />
+              <div className="dot" />
+            </div>
+          </div>
+        </div>
 
-        </main>
+        <div className="primary-bottom-cta">
+          <button className="cta" onClick={goLogin}>Get Started →</button>
+        </div>
       </div>
     </ThemeProvider>
   );

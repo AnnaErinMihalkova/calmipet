@@ -158,6 +158,31 @@ class ReadingViewSet(viewsets.ModelViewSet):
             except VirtualPet.DoesNotExist:
                 pass
 
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """Export user's readings as CSV"""
+        import csv
+        from io import StringIO
+
+        qs = self.get_queryset()
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['ts', 'hr_bpm', 'hrv_rmssd'])
+        for r in qs.order_by('ts'):
+            writer.writerow([
+                r.ts.isoformat(),
+                r.hr_bpm if r.hr_bpm is not None else '',
+                r.hrv_rmssd if r.hrv_rmssd is not None else '',
+            ])
+
+        data = output.getvalue()
+        output.close()
+
+        response = Response(data, content_type='text/csv')
+        filename = f"calmipet_readings_{timezone.now().date().isoformat()}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
 
 # ==================== STRESS EVENTS ====================
 

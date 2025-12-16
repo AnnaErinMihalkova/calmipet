@@ -1,0 +1,26 @@
+# Out of Scope — Phase 1 (Checklist)
+
+- [ ] Hardware: Live BLE sensor streaming (ESP32 → app)
+  - Reason: Requires pairing, GATT services, error handling; defers to Phase 2 to reduce complexity.
+- [ ] Hardware: Vibration motor haptics
+  - Reason: Hardware drivers and timing loops; not needed for MVP value.
+- [ ] Hardware: RGB LED mood indicator
+  - Reason: Adds wiring and power management; UI already reflects mood.
+- [ ] Hardware: Stress ball pressure sensor (FSR/capacitive)
+  - Reason: Additional sensor integration and calibration; simulated input sufficient.
+- [ ] Software: Push notifications
+  - Reason: Needs service workers or native; not essential in web MVP.
+- [ ] Software: Password reset email flow
+  - Reason: SMTP setup and templates; can be stubbed post‑MVP.
+- [ ] Software: Admin/analytics dashboards
+  - Reason: Phase 1 focuses on user experience, not ops.
+- [ ] Software: Complex pet assets/animations
+  - Reason: Art pipeline and performance; text/emoji conveys mood now.
+- [ ] ML: Personalized stress models
+  - Reason: Requires labeled data and evaluation; Phase 1 uses threshold heuristics.
+- [ ] ML: Anomaly detection/HRV windowed features
+  - Reason: Adds data science complexity; simple rules are enough for MVP.
+- [ ] Platform: Native iOS/Android apps
+  - Reason: Web MVP first; mobile wrappers considered later.
+- [ ] Platform: Multi‑device sync/cloud backup
+  - Reason: Adds storage/auth complexity; local storage is adequate for demo.

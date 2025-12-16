@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api/auth/';
+const API_BASE_URL = 'http://127.0.0.1:8000/api/auth/';
 
 const authApi = axios.create({
   baseURL: API_BASE_URL,
@@ -54,6 +54,11 @@ export const authService = {
       throw new Error('Please enter a valid email address');
     }
     const response = await authApi.post<AuthResponse>('login/', data);
+    return response.data;
+  },
+
+  me: async (): Promise<User> => {
+    const response = await authApi.get<User>('me/');
     return response.data;
   },
 

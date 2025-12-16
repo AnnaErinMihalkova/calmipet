@@ -1,21 +1,28 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api/';
+const API_BASE_URL = 'http://127.0.0.1:8000/api/';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 export interface Reading {
   id?: number;
-  user: number;
-  ts: string;
+  ts?: string;
   hr_bpm: number;
   hrv_rmssd: number;
 }
+
+export type CreateReading = {
+  hr_bpm: number;
+  hrv_rmssd?: number;
+  grip_force?: number;
+  posture_score?: number;
+};
 
 export const readingService = {
   // Get all readings
@@ -31,7 +38,7 @@ export const readingService = {
   },
 
   // Create a new reading
-  createReading: async (reading: Omit<Reading, 'id'>): Promise<Reading> => {
+  createReading: async (reading: CreateReading): Promise<Reading> => {
     const response = await api.post('readings/', reading);
     return response.data;
   },
@@ -45,6 +52,31 @@ export const readingService = {
   // Delete a reading
   deleteReading: async (id: number): Promise<void> => {
     await api.delete(`readings/${id}/`);
+  },
+
+  // Export readings as CSV
+  exportCsv: async (): Promise<Blob> => {
+    const response = await api.get('readings/export/', { responseType: 'blob' });
+    return response.data;
+  },
+};
+
+export const wellnessService = {
+  createBreathingSession: async (): Promise<any> => {
+    const response = await api.post('breathing-sessions/', {});
+    return response.data;
+  },
+  completeBreathingSession: async (id: number): Promise<any> => {
+    const response = await api.post(`breathing-sessions/${id}/complete/`, {});
+    return response.data;
+  },
+  getPet: async (): Promise<any> => {
+    const response = await api.get('pets/mine/');
+    return response.data;
+  },
+  getStreak: async (): Promise<any> => {
+    const response = await api.get('streaks/mine/');
+    return response.data;
   },
 };
 

@@ -8,6 +8,100 @@
   padding: 32px 20px 64px;
 }
 
+.app-shell {
+  max-width: 420px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.screen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.screen-header .skip {
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.onboarding-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: var(--shadow-lg);
+}
+
+.onboarding-visual {
+  display: grid;
+  place-items: center;
+  padding: 12px 0 20px;
+}
+
+.onboarding-visual .pet {
+  width: 240px;
+  height: 240px;
+  border-radius: 24px;
+  background: radial-gradient(60% 60% at 50% 40%, rgba(124,58,237,0.25), transparent);
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--border-color);
+}
+
+.onboarding-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+
+.onboarding-subtitle {
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+}
+
+.progress-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin: 12px 0 16px;
+}
+
+.progress-dots .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-color);
+}
+
+.progress-dots .dot.active {
+  background: var(--accent-color);
+}
+
+.primary-bottom-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 16px;
+  display: grid;
+  place-items: center;
+}
+
+.primary-bottom-cta .cta {
+  width: 90%;
+  max-width: 420px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+}
+
 .hero {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
