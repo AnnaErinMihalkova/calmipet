@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db.models import Avg, Count, Q, F
@@ -61,6 +61,22 @@ def login_view(request):
 @permission_classes([IsAuthenticated])
 def current_user(request):
     return Response(UserSerializer(request.user).data)
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    logout(request)
+    return Response({'message': 'Logged out'}, status=status.HTTP_200_OK)
+
+@csrf_exempt
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_account(request):
+    user = request.user
+    logout(request)
+    user.delete()
+    return Response({'message': 'Account deleted'}, status=status.HTTP_200_OK)
 
 
 # ==================== STRESS DETECTION LOGIC ====================

@@ -28,6 +28,7 @@ const OnboardingInfo: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
     const ratings = ratingsRaw ? JSON.parse(ratingsRaw) as Record<string, number> : {};
     ratings[todayKey] = stress;
     localStorage.setItem('hb_stress_ratings', JSON.stringify(ratings));
+    localStorage.setItem('hb_onboarded', '1');
     onComplete();
   };
 

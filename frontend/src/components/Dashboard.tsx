@@ -11,6 +11,19 @@ const Dashboard: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [coachOpen, setCoachOpen] = React.useState<boolean>(false);
   const [username, setUsername] = React.useState<string>('');
+  const handleLogout = async () => {
+    try { await authService.logout(); } catch {}
+    try { localStorage.removeItem('hb_onboarded'); } catch {}
+    window.location.hash = 'home';
+    window.location.reload();
+  };
+  const handleDelete = async () => {
+    if (!window.confirm('Delete your account? This cannot be undone.')) return;
+    try { await authService.deleteAccount(); } catch {}
+    try { localStorage.clear(); } catch {}
+    window.location.hash = 'home';
+    window.location.reload();
+  };
 
   const fetchReadings = async () => {
     try {
@@ -64,6 +77,38 @@ const Dashboard: React.FC = () => {
           <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'radial-gradient(60% 60% at 50% 50%, rgba(124,58,237,0.25), transparent)', display: 'grid', placeItems: 'center', border: '2px solid var(--border-color)' }}>
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-tertiary)' }} />
           </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button className="ghost-cta" onClick={handleLogout}>Log Out</button>
+        <button className="ghost-cta" onClick={handleDelete} style={{ color: 'var(--accent-color)' }}>Delete Account</button>
+      </div>
+
+      <div style={{ display: 'grid', placeItems: 'center', marginBottom: 12 }}>
+        <div style={{ width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(60% 60% at 50% 50%, rgba(124,58,237,0.25), transparent)', display: 'grid', placeItems: 'center', border: '2px solid var(--border-color)' }}>
+          <svg viewBox="0 0 200 200" width="160" height="160">
+            <circle cx="100" cy="110" r="46" fill="#2c2c2c" />
+            <path d="M60 110c8-24 30-40 40-40c10 0 32 16 40 40" fill="#1f1f1f" />
+            <circle cx="85" cy="118" r="12" fill="#ffffff" />
+            <circle cx="115" cy="118" r="12" fill="#ffffff" />
+            <circle cx="85" cy="118" r="6" fill="#1a1a1a">
+              <animate attributeName="r" values="6;5;6" dur="2s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="115" cy="118" r="6" fill="#1a1a1a">
+              <animate attributeName="r" values="6;5;6" dur="2s" repeatCount="indefinite" />
+            </circle>
+            <ellipse cx="100" cy="128" rx="8" ry="6" fill="#1a1a1a" />
+            <path d="M80 88l16-16" stroke="#2c2c2c" strokeWidth="8" strokeLinecap="round">
+              <animateTransform attributeName="transform" type="rotate" values="-3 88 80;3 88 80;-3 88 80" dur="4s" repeatCount="indefinite" />
+            </path>
+            <path d="M120 88l-16-16" stroke="#2c2c2c" strokeWidth="8" strokeLinecap="round">
+              <animateTransform attributeName="transform" type="rotate" values="3 112 80;-3 112 80;3 112 80" dur="4s" repeatCount="indefinite" />
+            </path>
+            <path d="M140 140c20 10 26 18 26 24" stroke="#2c2c2c" strokeWidth="6" fill="none">
+              <animateTransform attributeName="transform" type="rotate" values="-10 140 140;10 140 140;-10 140 140" dur="3s" repeatCount="indefinite" />
+            </path>
+          </svg>
         </div>
       </div>
 

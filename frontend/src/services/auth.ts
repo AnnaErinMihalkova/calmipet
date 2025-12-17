@@ -14,6 +14,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  date_joined?: string;
 }
 
 export interface SignUpData {
@@ -64,8 +65,11 @@ export const authService = {
 
   // Log out (if needed in the future)
   logout: async (): Promise<void> => {
-    // This would typically call a logout endpoint
-    // For now, we'll just clear any local storage if needed
+    await authApi.post('logout/', {});
+  },
+
+  deleteAccount: async (): Promise<void> => {
+    await authApi.delete('delete/');
   },
 };
 
