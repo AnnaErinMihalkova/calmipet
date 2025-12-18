@@ -1,77 +1,11 @@
 import React from 'react';
 import ThemeToggle from './components/ThemeToggle';
-import CircularLogo from './components/CircularLogo';
 import { ThemeProvider } from './contexts/ThemeContext';
 import SignUp from './components/SignUp';
 import Login from './components/Login';
-import OnboardingInfo from './components/OnboardingInfo';
 import './App.css';
 import Dashboard from './components/Dashboard';
 
-type TimelineItem = {
-  title: string;
-  items: string[];
-};
-
-const featureHighlights = [
-  {
-    title: 'Stress-aware pet',
-    description: 'Your companion mirrors your mood—concerned when you’re tense, calm when you recover.',
-  },
-  {
-    title: 'Guided breathing',
-    description: 'Soft cues and visuals walk you through slow, steady breaths to downshift stress.',
-  },
-  {
-    title: 'Streaks & rewards',
-    description: 'Daily calm streaks unlock cozy dens, accessories, and playful mini-missions.',
-  },
-  {
-    title: 'Mood meter',
-    description: 'See your progress at a glance and watch your pet brighten as you stay balanced.',
-  },
-];
-
-const feels = [
-  'A gentle nudge when stress rises',
-  'A pet that “worries” with you and relaxes beside you',
-  'A quick breathing break you can finish in under two minutes',
-  'A streak that grows when you keep showing up',
-];
-
-const dailyFlow = [
-  'Check-in: notice how you feel and how your buddy looks',
-  'Breathe together: follow slow inhale/exhale cues until your pet softens',
-  'Celebrate: earn points, calm streaks, and unlock tiny rewards',
-  'Repeat: short sessions across the day keep the mood meter glowing',
-];
-
-const timeline: TimelineItem[] = [
-  {
-    title: 'Month 1 • Imagine',
-    items: [
-      'Shape the pet’s personality and moods',
-      'Sketch the calm/worried states',
-      'Try early feel-good animations',
-    ],
-  },
-  {
-    title: 'Month 2 • Build & bond',
-    items: [
-      'Create the home screen and breathing flows',
-      'Make the pet react to your calm checks',
-      'Add streaks and small rewards',
-    ],
-  },
-  {
-    title: 'Month 3 • Polish & share',
-    items: [
-      'Tune the calm prompts and pacing',
-      'Refine moods, sounds, and haptics',
-      'Prep a friendly demo to show friends',
-    ],
-  },
-];
 
 function App() {
   const [currentPage, setCurrentPage] = React.useState<'home' | 'signup' | 'login' | 'onboarding' | 'readings' | 'dashboard' | 'progress' | 'account'>('home');
@@ -89,8 +23,7 @@ function App() {
       try {
         const { authService } = require('./services/auth');
         await authService.me();
-        const onboarded = localStorage.getItem('hb_onboarded') === '1';
-        setCurrentPage(onboarded ? 'dashboard' : 'onboarding');
+        setCurrentPage('dashboard');
       } catch {}
     };
     if (!window.location.hash || window.location.hash === '#home') {
@@ -102,8 +35,8 @@ function App() {
     window.location.hash = currentPage;
   }, [currentPage]);
 
-  const handleSignupSuccess = () => setCurrentPage('onboarding');
-  const handleLoginSuccess = () => setCurrentPage('onboarding');
+  const handleSignupSuccess = () => setCurrentPage('dashboard');
+  const handleLoginSuccess = () => setCurrentPage('dashboard');
   const goHome = () => setCurrentPage('home');
   const goLogin = () => setCurrentPage('login');
   const goSignup = () => setCurrentPage('signup');
@@ -133,9 +66,7 @@ function App() {
         <div className="App">
           <ThemeToggle />
           <SignUp onNavigateToLogin={goLogin} onAuthSuccess={handleSignupSuccess} />
-          <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goHome} role="button">
-            ← Back to Home
-          </div>
+          <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goLogin} role="button">Log In</div>
         </div>
       </ThemeProvider>
     );
@@ -160,9 +91,11 @@ function App() {
       <ThemeProvider>
         <div className="App">
           <ThemeToggle />
-          <OnboardingInfo onComplete={goDashboard} />
-          <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goHome} role="button">
-            Skip for now →
+          <div className="content">
+            <div className="card">
+              <h3>Welcome</h3>
+              <p>Explore Calmi Pet. Log in to get started.</p>
+            </div>
           </div>
         </div>
       </ThemeProvider>
@@ -250,26 +183,32 @@ function App() {
     const AccountView: React.FC = () => {
       const [user, setUser] = React.useState<any>(null);
       const [info, setInfo] = React.useState<any>(null);
+      const [uname, setUname] = React.useState('');
+      const [email, setEmail] = React.useState('');
       React.useEffect(() => {
         const { authService } = require('./services/auth');
-        authService.me().then(setUser).catch(() => setUser(null));
+        authService.me().then((u: any) => { setUser(u); setUname(u.username); setEmail(u.email); }).catch(() => setUser(null));
         try { const raw = localStorage.getItem('hb_user_info'); setInfo(raw ? JSON.parse(raw) : null); } catch { setInfo(null); }
       }, []);
+      const saveAccount = async () => { const { authService } = require('./services/auth'); try { const u = await authService.updateAccount({ username: uname, email }); setUser(u); } catch (e: any) { alert(e?.response?.data?.email?.[0] || 'Failed to update'); } };
+      const saveInfo = async () => { try { localStorage.setItem('hb_user_info', JSON.stringify(info || {})); alert('Saved'); } catch {} };
       const logout = async () => { const { authService } = require('./services/auth'); try { await authService.logout(); } catch {} window.location.hash = 'home'; window.location.reload(); };
       const del = async () => { if (!window.confirm('Delete your account?')) return; const { authService } = require('./services/auth'); try { await authService.deleteAccount(); } catch {} try { localStorage.clear(); } catch {} window.location.hash = 'home'; window.location.reload(); };
       return (
         <div className="content" style={{ paddingBottom: 80 }}>
           <div className="card" style={{ marginBottom: 12 }}>
             <h3>Account</h3>
-            <div>Username: {user?.username ?? '—'}</div>
-            <div>Email: {user?.email ?? '—'}</div>
+            <div className="form-group"><label>Username</label><input value={uname} onChange={(e) => setUname(e.target.value)} /></div>
+            <div className="form-group"><label>Email</label><input value={email} onChange={(e) => setEmail(e.target.value)} /></div>
             <div>Joined: {user?.date_joined ? new Date(user.date_joined).toLocaleString() : '—'}</div>
+            <div style={{ marginTop: 8 }}><button className="primary-cta" onClick={saveAccount}>Save Account</button></div>
           </div>
           <div className="card" style={{ marginBottom: 12 }}>
             <h3>Your Info</h3>
-            <div>Age: {info?.age ?? '—'}</div>
-            <div>Gender: {info?.gender ?? '—'}</div>
-            <div>Baseline HR: {info?.baselineHr ?? '—'}</div>
+            <div className="form-group"><label>Age</label><input value={info?.age ?? ''} onChange={(e) => setInfo({ ...(info||{}), age: e.target.value })} /></div>
+            <div className="form-group"><label>Gender</label><select value={info?.gender ?? ''} onChange={(e) => setInfo({ ...(info||{}), gender: e.target.value })}><option value="male">Male</option><option value="female">Female</option><option value="prefer_not_to_say">Prefer not to say</option></select></div>
+            <div className="form-group"><label>Baseline HR</label><input value={info?.baselineHr ?? ''} onChange={(e) => setInfo({ ...(info||{}), baselineHr: e.target.value })} /></div>
+            <div style={{ marginTop: 8 }}><button className="primary-cta" onClick={saveInfo}>Save Info</button></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="ghost-cta" onClick={logout}>Log Out</button>

@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import login, logout
+from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db.models import Avg, Count, Q, F
@@ -77,6 +78,28 @@ def delete_account(request):
     logout(request)
     user.delete()
     return Response({'message': 'Account deleted'}, status=status.HTTP_200_OK)
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_account(request):
+    data = request.data or {}
+    user: User = request.user
+    username = data.get('username')
+    email = data.get('email')
+    errors = {}
+    if email:
+        existing = User.objects.filter(email=email).exclude(id=user.id).exists()
+        if existing:
+            errors['email'] = ['A user with this email already exists.']
+    if errors:
+        return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+    if username:
+        user.username = username
+    if email:
+        user.email = email
+    user.save()
+    return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
 
 
 # ==================== STRESS DETECTION LOGIC ====================
