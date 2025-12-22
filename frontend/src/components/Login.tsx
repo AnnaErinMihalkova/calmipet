@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { validateEmail } from '../services/auth';
-import axios from 'axios';
+import { authService, validateEmail } from '../services/auth';
 import CircularLogo from './CircularLogo';
 import './Login.css';
 
@@ -74,12 +73,17 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup, onAuthSuccess }) => {
       const ratings = ratingsRaw ? JSON.parse(ratingsRaw) as Record<string, number> : {};
       ratings[todayKey] = stress;
       localStorage.setItem('hb_stress_ratings', JSON.stringify(ratings));
-      const base = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000/api';
-      const res = await axios.post(`${base}/auth/login`, { email: formData.email, password: formData.password }, { headers: { 'Content-Type': 'application/json' } });
-      const data = res.data;
+      const data = await authService.login({ email: formData.email, password: formData.password });
+      if (!data.accessToken || !data.refreshToken) {
+        throw new Error('Network error');
+      }
       try {
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
+        if (data.accessToken) {
+          localStorage.setItem('accessToken', data.accessToken);
+        }
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
         localStorage.setItem('hb_user', JSON.stringify(data.user));
       } catch {}
       setSuccessMessage('Login successful! Redirecting...');

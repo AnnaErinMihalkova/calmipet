@@ -12,6 +12,11 @@ function App() {
   const [step, setStep] = React.useState<number>(0);
 
   React.useEffect(() => {
+    const id = setInterval(() => setStep((p) => p + 1), 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  React.useEffect(() => {
     const hash = window.location.hash.replace('#', '');
     if (hash === 'login' || hash === 'signup' || hash === 'home' || hash === 'onboarding' || hash === 'readings' || hash === 'dashboard' || hash === 'progress' || hash === 'account') {
       setCurrentPage(hash as 'home' | 'signup' | 'login' | 'onboarding' | 'readings' | 'dashboard' | 'progress' | 'account');
@@ -186,11 +191,15 @@ function App() {
       const [uname, setUname] = React.useState('');
       const [email, setEmail] = React.useState('');
       React.useEffect(() => {
+        try {
+          const rawUser = localStorage.getItem('hb_user');
+          if (rawUser) { const u = JSON.parse(rawUser); setUser(u); setUname(u.username); setEmail(u.email); }
+        } catch {}
         const { authService } = require('./services/auth');
-        authService.me().then((u: any) => { setUser(u); setUname(u.username); setEmail(u.email); }).catch(() => setUser(null));
+        authService.me().then((u: any) => { setUser(u); setUname(u.username); setEmail(u.email); try { localStorage.setItem('hb_user', JSON.stringify(u)); } catch {} }).catch(() => {});
         try { const raw = localStorage.getItem('hb_user_info'); setInfo(raw ? JSON.parse(raw) : null); } catch { setInfo(null); }
       }, []);
-      const saveAccount = async () => { const { authService } = require('./services/auth'); try { const u = await authService.updateAccount({ username: uname, email }); setUser(u); } catch (e: any) { alert(e?.response?.data?.email?.[0] || 'Failed to update'); } };
+      const saveAccount = async () => { const { authService } = require('./services/auth'); try { const u = await authService.updateAccount({ username: uname, email }); setUser(u); try { localStorage.setItem('hb_user', JSON.stringify(u)); } catch {} } catch (e: any) { alert(e?.response?.data?.email?.[0] || 'Failed to update'); } };
       const saveInfo = async () => { try { localStorage.setItem('hb_user_info', JSON.stringify(info || {})); alert('Saved'); } catch {} };
       const logout = async () => { const { authService } = require('./services/auth'); try { await authService.logout(); } catch {} window.location.hash = 'home'; window.location.reload(); };
       const del = async () => { if (!window.confirm('Delete your account?')) return; const { authService } = require('./services/auth'); try { await authService.deleteAccount(); } catch {} try { localStorage.clear(); } catch {} window.location.hash = 'home'; window.location.reload(); };
@@ -235,8 +244,8 @@ function App() {
 
         <div className="app-shell">
           <div className="screen-header">
-            <div style={{ fontSize: 24 }}>🐾</div>
-            <div className="skip" onClick={goDashboard}>Skip</div>
+            <div style={{ fontSize: 24 }}>🦝</div>
+            <div className="skip" onClick={goLogin}>Skip</div>
           </div>
 
           <div className="onboarding-card">
