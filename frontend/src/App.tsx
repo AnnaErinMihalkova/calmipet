@@ -244,7 +244,7 @@ function App() {
 
         <div className="app-shell">
           <div className="screen-header">
-            <div style={{ fontSize: 24 }}>🦝</div>
+            <div style={{ fontSize: 24 }}>🐾</div>
             <div className="skip" onClick={goLogin}>Skip</div>
           </div>
 
@@ -282,7 +282,7 @@ function App() {
         </div>
 
         <div className="primary-bottom-cta">
-          <button className="cta" onClick={goSignup}>Create Account</button>
+          <button className="cta" onClick={goLogin}>Create Account</button>
         </div>
       </div>
     </ThemeProvider>

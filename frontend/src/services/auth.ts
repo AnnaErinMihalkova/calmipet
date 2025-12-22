@@ -1,12 +1,14 @@
 import axios from 'axios';
 
-const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000/api');
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000/api');
 
 const authApi = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
+  timeout: 10000, // 10 second timeout
 });
 
 export interface User {
@@ -45,7 +47,7 @@ export const authService = {
     if (!validateEmail(data.email)) {
       throw new Error('Please enter a valid email address');
     }
-    const response = await authApi.post<AuthResponse>('/auth/signup', data);
+    const response = await authApi.post<AuthResponse>('/auth/signup/', data);
     return response.data;
   },
 
@@ -53,30 +55,32 @@ export const authService = {
     if (!validateEmail(data.email)) {
       throw new Error('Please enter a valid email address');
     }
-    const response = await authApi.post<AuthResponse>('/auth/login', data);
+    const response = await authApi.post<AuthResponse>('/auth/login/', data);
     return response.data;
   },
 
   me: async (): Promise<User> => {
     const token = localStorage.getItem('accessToken') || '';
-    const response = await authApi.get<User>('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+    // Django session based auth usually, but if token based, header is needed.
+    // The backend views use SessionAuthentication or maybe TokenAuthentication?
+    // Let's assume the backend handles auth via session cookie or we need to check how it expects auth.
+    // The current backend code uses django.contrib.auth.login which sets a session cookie.
+    // So axios needs withCredentials: true.
+    const response = await authApi.get<User>('/auth/me/'); 
     return response.data;
   },
 
   logout: async (): Promise<void> => {
-    const token = localStorage.getItem('accessToken') || '';
-    try { await authApi.post('/auth/revoke', {}, { headers: { Authorization: `Bearer ${token}` } }); } catch {}
+    try { await authApi.post('/auth/logout/'); } catch {}
     try { localStorage.removeItem('accessToken'); localStorage.removeItem('refreshToken'); } catch {}
   },
 
   updateAccount: async (data: Partial<User>): Promise<User> => {
-    const token = localStorage.getItem('accessToken') || '';
-    const response = await authApi.post<User>('/users/update', data, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await authApi.post<User>('/auth/update/', data);
     return response.data;
   },
   deleteAccount: async (): Promise<void> => {
-    const token = localStorage.getItem('accessToken') || '';
-    try { await authApi.post('/auth/revoke', {}, { headers: { Authorization: `Bearer ${token}` } }); } catch {}
+    try { await authApi.delete('/auth/delete/'); } catch {}
     try { localStorage.clear(); } catch {}
   },
 };

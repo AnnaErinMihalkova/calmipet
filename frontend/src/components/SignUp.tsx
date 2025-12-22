@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { authService, validateEmail } from '../services/auth';
 import CircularLogo from './CircularLogo';
-import PasswordStrength from './PasswordStrength';
 import './SignUp.css';
 
 interface SignUpProps {
@@ -11,16 +10,13 @@ interface SignUpProps {
 
 const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => {
   const [formData, setFormData] = useState({
-    username: '',
     email: '',
     password: '',
-    confirmPassword: '',
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -38,12 +34,6 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!formData.username) {
-      newErrors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters';
-    }
-
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!validateEmail(formData.email)) {
@@ -54,22 +44,6 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
-    } else {
-      // Check password strength requirements
-      const hasUpperCase = /[A-Z]/.test(formData.password);
-      const hasLowerCase = /[a-z]/.test(formData.password);
-      const hasNumber = /[0-9]/.test(formData.password);
-      const hasSpecial = /[^a-zA-Z0-9]/.test(formData.password);
-      
-      if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecial) {
-        newErrors.password = 'Password must include uppercase, lowercase, number, and special character';
-      }
-    }
-
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
     }
 
     setErrors(newErrors);
@@ -86,37 +60,45 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
 
     setIsLoading(true);
     try {
-      const response = await authService.signUp({
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-      });
-      setSuccessMessage('Account created successfully! Redirecting...');
-      console.log('Sign up successful:', response);
-      // Navigate to home if provided, otherwise fallback to root
+      const data = await authService.login({ email: formData.email, password: formData.password });
+      
+      try {
+        if (data.accessToken) {
+          localStorage.setItem('accessToken', data.accessToken);
+        }
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        localStorage.setItem('hb_user', JSON.stringify(data.user));
+      } catch {}
+      
+      setSuccessMessage('Login successful! Redirecting...');
       setTimeout(() => {
         if (onAuthSuccess) {
           onAuthSuccess();
         } else {
-          window.location.href = '/';
+          window.location.hash = 'dashboard';
         }
       }, 1000);
     } catch (error: any) {
-      if (error.response?.data) {
+      // Handle network errors
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        setErrors({ email: 'Network error: Unable to connect to server. Please check your connection.' });
+      } else if (error.response) {
+        // Server responded with error status
         const errorData = error.response.data;
         if (errorData.email) {
-          setErrors({ email: errorData.email[0] });
-        } else if (errorData.username) {
-          setErrors({ username: errorData.username[0] });
-        } else if (errorData.password) {
-          setErrors({ password: errorData.password[0] });
+          setErrors({ email: Array.isArray(errorData.email) ? errorData.email[0] : errorData.email });
+        } else if (errorData.non_field_errors) {
+          setErrors({ email: Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors[0] : errorData.non_field_errors });
+        } else if (errorData.error) {
+          setErrors({ email: errorData.error });
         } else {
-          setErrors({ email: 'An error occurred. Please try again.' });
+          setErrors({ email: 'Invalid email or password' });
         }
-      } else if (error.message) {
-        setErrors({ email: error.message });
       } else {
-        setErrors({ email: 'An error occurred. Please try again.' });
+        // Other errors
+        setErrors({ email: error?.message || 'An error occurred. Please try again.' });
       }
     } finally {
       setIsLoading(false);
@@ -128,30 +110,19 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
       <div className="signup-card">
         <div className="logo-container">
           <CircularLogo size={120} />
-          <h1 className="logo-text">CalmiPet</h1>
-          <p className="logo-tagline">Your Pet's Wellness Companion</p>
+          <h1 className="logo-text">Welcome back</h1>
+          <p className="logo-tagline">Find your calm today</p>
         </div>
 
         {successMessage && (
           <div className="success-message">{successMessage}</div>
         )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+          <button type="button" className="ghost-cta" style={{ opacity: 0.8 }} onClick={() => onNavigateToLogin ? onNavigateToLogin() : (window.location.hash = 'login')}>Log In</button>
+          <button type="button" className="ghost-cta" style={{ fontWeight: 700 }}>Sign Up</button>
+        </div>
 
         <form onSubmit={handleSubmit} className="signup-form">
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              placeholder="Choose a username"
-              className={errors.username ? 'error' : ''}
-            />
-            {errors.username && <span className="error-message">{errors.username}</span>}
-          </div>
-
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
@@ -177,7 +148,7 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
                 value={formData.password}
                 onChange={handleChange}
                 required
-                placeholder="Create a password"
+                placeholder="Enter your password"
                 className={errors.password ? 'error' : ''}
               />
               <button
@@ -189,56 +160,21 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
                 {showPassword ? 'Hide' : 'Show'}
               </button>
             </div>
-            {formData.password && <PasswordStrength password={formData.password} />}
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
 
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
-            <div className="input-wrap">
-              <input
-                type={showConfirm ? 'text' : 'password'}
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-                placeholder="Confirm your password"
-                className={errors.confirmPassword ? 'error' : ''}
-              />
-              <button
-                type="button"
-                className="visibility-btn"
-                onClick={() => setShowConfirm((s) => !s)}
-                aria-label={showConfirm ? 'Hide password' : 'Show password'}
-              >
-                {showConfirm ? 'Hide' : 'Show'}
-              </button>
-            </div>
-            {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
-          </div>
-
           <button type="submit" className="signup-button" disabled={isLoading}>
-            {isLoading ? 'Creating Account...' : 'Create Account'}
+            {isLoading ? 'Logging in...' : 'Sign In'}
           </button>
 
-          <p className="login-link">
-            Already have an account?{' '}
-            <a
-              href="#login"
-              onClick={(e) => {
-                e.preventDefault();
-                if (onNavigateToLogin) {
-                  onNavigateToLogin();
-                } else {
-                  window.location.hash = 'login';
-                  window.location.reload();
-                }
-              }}
-            >
-              Sign in
-            </a>
-          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 16, alignItems: 'center' }}>
+            <div style={{ height: 1, background: 'var(--border-color)' }} />
+            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>OR CONTINUE WITH</div>
+            <div style={{ height: 1, background: 'var(--border-color)' }} />
+            <button type="button" className="ghost-cta"></button>
+            <button type="button" className="ghost-cta">G</button>
+            <button type="button" className="ghost-cta">f</button>
+          </div>
         </form>
       </div>
     </div>
@@ -246,4 +182,3 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
 };
 
 export default SignUp;
-

@@ -4,16 +4,17 @@ import React from 'react'
 import AuthScreen from './src/screens/AuthScreen'
 import HomeScreen from './src/screens/HomeScreen'
 import { AuthProvider, useAuth } from './src/context/AuthContext'
-import AuthGuard from './src/components/AuthGuard'
 
 function AppContent() {
   const { user, logout } = useAuth()
   return (
     <View style={styles.container}>
       <Text style={styles.title}>CalmiPet Mobile</Text>
-      <AuthGuard>
+      {!user ? (
+        <AuthScreen />
+      ) : (
         <HomeScreen user={user} onLogout={logout} />
-      </AuthGuard>
+      )}
       <StatusBar style="auto" />
     </View>
   )
