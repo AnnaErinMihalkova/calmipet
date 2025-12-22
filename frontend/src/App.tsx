@@ -71,7 +71,9 @@ function App() {
         <div className="App">
           <ThemeToggle />
           <SignUp onNavigateToLogin={goLogin} onAuthSuccess={handleSignupSuccess} />
-          <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goLogin} role="button">Log In</div>
+          <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goHome} role="button">
+            ← Back to Home
+          </div>
         </div>
       </ThemeProvider>
     );
@@ -282,7 +284,7 @@ function App() {
         </div>
 
         <div className="primary-bottom-cta">
-          <button className="cta" onClick={goLogin}>Create Account</button>
+          <button className="cta" onClick={goSignup}>Create Account</button>
         </div>
       </div>
     </ThemeProvider>

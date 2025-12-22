@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
@@ -36,8 +37,14 @@ def signup(request):
     if serializer.is_valid():
         user = serializer.save()
         login(request, user)
+        
+        # Generate JWT tokens for mobile app support
+        refresh = RefreshToken.for_user(user)
+        
         return Response({
             'user': UserSerializer(user).data,
+            'accessToken': str(refresh.access_token),
+            'refreshToken': str(refresh),
             'message': 'User created successfully'
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -51,8 +58,14 @@ def login_view(request):
     if serializer.is_valid():
         user = serializer.validated_data['user']
         login(request, user)
+        
+        # Generate JWT tokens for mobile app support
+        refresh = RefreshToken.for_user(user)
+        
         return Response({
             'user': UserSerializer(user).data,
+            'accessToken': str(refresh.access_token),
+            'refreshToken': str(refresh),
             'message': 'Login successful'
         }, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -62,6 +75,26 @@ def login_view(request):
 @permission_classes([IsAuthenticated])
 def current_user(request):
     return Response(UserSerializer(request.user).data)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def refresh_token(request):
+    """Refresh access token using refresh token"""
+    refresh_token = request.data.get('refreshToken')
+    if not refresh_token:
+        return Response({'error': 'refreshToken is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        refresh = RefreshToken(refresh_token)
+        access_token = refresh.access_token
+        return Response({
+            'accessToken': str(access_token),
+            'refreshToken': str(refresh),
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': 'Invalid refresh token'}, status=status.HTTP_401_UNAUTHORIZED)
 
 @csrf_exempt
 @api_view(['POST'])

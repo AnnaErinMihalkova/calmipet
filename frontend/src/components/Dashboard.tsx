@@ -5,6 +5,7 @@ import TrendChart from './TrendChart';
 import PetCard from './PetCard';
 import BreathingCoach from './BreathingCoach';
 import CircularLogo from './CircularLogo';
+import RoamingPet from './RoamingPet';
 
 const Dashboard: React.FC = () => {
   const [readings, setReadings] = React.useState<Reading[]>([]);
@@ -61,6 +62,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="content" style={{ padding: 20 }}>
+      <RoamingPet />
       <div style={{
         background: 'var(--bg-secondary)',
         border: '1px solid var(--border-color)',
