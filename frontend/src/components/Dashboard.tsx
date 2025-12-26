@@ -6,6 +6,7 @@ import PetCard from './PetCard';
 import BreathingCoach from './BreathingCoach';
 import CircularLogo from './CircularLogo';
 import RoamingPet from './RoamingPet';
+import { startAutoSendLoop } from '../services/bracelet-simulator';
 
 const Dashboard: React.FC = () => {
   const [readings, setReadings] = React.useState<Reading[]>([]);
@@ -13,6 +14,7 @@ const Dashboard: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [coachOpen, setCoachOpen] = React.useState<boolean>(false);
   const [username, setUsername] = React.useState<string>('');
+  const [authed, setAuthed] = React.useState<boolean>(false);
   const handleLogout = async () => {
     try { await authService.logout(); } catch {}
     try { localStorage.removeItem('hb_onboarded'); } catch {}
@@ -40,7 +42,22 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  React.useEffect(() => { fetchReadings(); authService.me().then((u) => setUsername(u.username)).catch(() => setUsername('')); }, []);
+  React.useEffect(() => {
+    authService.me().then((u) => {
+      setUsername(u.username);
+      setAuthed(true);
+      fetchReadings();
+    }).catch(() => {
+      setAuthed(false);
+      setError('Please log in to view readings');
+      setLoading(false);
+    });
+  }, []);
+  React.useEffect(() => {
+    if (!authed) return;
+    const loop = startAutoSendLoop(6, true, () => { fetchReadings(); }, () => { setError('Failed to auto-send reading'); });
+    return () => { clearInterval(loop); };
+  }, [authed]);
 
   const addTestReading = async () => {
     try {

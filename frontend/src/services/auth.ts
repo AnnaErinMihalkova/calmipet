@@ -61,12 +61,8 @@ export const authService = {
 
   me: async (): Promise<User> => {
     const token = localStorage.getItem('accessToken') || '';
-    // Django session based auth usually, but if token based, header is needed.
-    // The backend views use SessionAuthentication or maybe TokenAuthentication?
-    // Let's assume the backend handles auth via session cookie or we need to check how it expects auth.
-    // The current backend code uses django.contrib.auth.login which sets a session cookie.
-    // So axios needs withCredentials: true.
-    const response = await authApi.get<User>('/auth/me/'); 
+    const cfg: any = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+    const response = await authApi.get<User>('/auth/me/', cfg); 
     return response.data;
   },
 
@@ -86,4 +82,3 @@ export const authService = {
 };
 
 export default authService;
-

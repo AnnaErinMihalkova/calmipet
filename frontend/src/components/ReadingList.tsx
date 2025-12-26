@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { readingService, Reading, CreateReading } from '../services/api';
+import { authService } from '../services/auth';
 import './ReadingList.css';
 
 const ReadingList: React.FC = () => {
@@ -8,7 +9,12 @@ const ReadingList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchReadings();
+    authService.me().then(() => {
+      fetchReadings();
+    }).catch(() => {
+      setError('Please log in to view readings');
+      setLoading(false);
+    });
   }, []);
 
   const fetchReadings = async () => {

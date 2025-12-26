@@ -10,6 +10,17 @@ const api = axios.create({
   withCredentials: true,
 });
 
+api.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers = config.headers || {};
+      (config.headers as any).Authorization = `Bearer ${token}`;
+    }
+  } catch {}
+  return config;
+});
+
 export interface Reading {
   id?: number;
   ts?: string;
@@ -22,6 +33,13 @@ export type CreateReading = {
   hrv_rmssd?: number;
   grip_force?: number;
   posture_score?: number;
+};
+
+export type CreateExternalReading = {
+  userId: string;
+  hr: number;
+  hrv?: number;
+  timestamp?: string;
 };
 
 export const readingService = {
@@ -43,6 +61,18 @@ export const readingService = {
     return response.data;
   },
 
+  // Create a new reading via CSRF-exempt endpoint (bracelet simulator)
+  createReadingExternal: async (reading: CreateExternalReading): Promise<Reading> => {
+    const payload: any = {
+      userId: reading.userId,
+      hr: reading.hr,
+    };
+    if (reading.hrv !== undefined) payload.hrv = reading.hrv;
+    if (reading.timestamp) payload.timestamp = reading.timestamp;
+    const response = await api.post('bracelet/readings/', payload);
+    return response.data;
+  },
+
   // Update a reading
   updateReading: async (id: number, reading: Partial<Reading>): Promise<Reading> => {
     const response = await api.put(`readings/${id}/`, reading);
@@ -59,7 +89,7 @@ export const readingService = {
     const response = await api.get('readings/export/', { responseType: 'blob' });
     return response.data;
   },
-};
+  };
 
 export const wellnessService = {
   createBreathingSession: async (): Promise<any> => {

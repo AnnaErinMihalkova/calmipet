@@ -5,7 +5,7 @@ from api.views import (
     ReadingViewSet, StressEventViewSet, BreathingSessionViewSet,
     VirtualPetViewSet, StreakViewSet, AchievementViewSet,
     UnlockableViewSet, UserUnlockableViewSet, JournalEntryViewSet,
-    UserProfileViewSet, signup, login_view, current_user, logout_view, delete_account, update_account, analytics, mood_meter, refresh_token
+    UserProfileViewSet, signup, login_view, current_user, logout_view, delete_account, update_account, analytics, mood_meter, refresh_token, createReading
 )
 
 router = DefaultRouter()
@@ -22,6 +22,8 @@ router.register(r'profile', UserProfileViewSet, basename='userprofile')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # Bracelet simulator endpoint (CSRF-exempt, not colliding with router detail routes)
+    path('api/bracelet/readings/', createReading, name='create_reading'),
     path('api/', include(router.urls)),
     path('api/auth/signup/', signup, name='signup'),
     path('api/auth/login/', login_view, name='login'),
