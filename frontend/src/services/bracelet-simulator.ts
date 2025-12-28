@@ -185,8 +185,12 @@ export function startAutoSendLoop(
   onSuccess?: (reading: BraceletReading) => void,
   onError?: (error: Error, reading: BraceletReading) => void
 ): NodeJS.Timeout {
+  let consecutiveFailures = 0
+  let pausedUntil = 0
   // Generate and send initial reading immediately
   const sendReading = async () => {
+    const now = Date.now()
+    if (pausedUntil > now) return
     // Generate without logging first, then log the final reading after modifications
     const reading = generateReading(false);
     
@@ -218,12 +222,19 @@ export function startAutoSendLoop(
       };
       await readingService.createReadingExternal(apiReading);
       console.log(`[Backend] Successfully sent reading to API (HR: ${reading.hr} BPM${reading.hrv !== undefined ? `, HRV: ${reading.hrv}` : ''})`);
+      consecutiveFailures = 0
       
       if (onSuccess) {
         onSuccess(reading);
       }
     } catch (error) {
       console.error(`[Backend] Failed to send reading (HR: ${reading.hr} BPM${reading.hrv !== undefined ? `, HRV: ${reading.hrv}` : ''}):`, error);
+      consecutiveFailures += 1
+      if (consecutiveFailures >= 5) {
+        pausedUntil = Date.now() + 30000
+        consecutiveFailures = 0
+        console.warn('Pausing auto-send for 30s due to repeated failures')
+      }
       
       if (onError) {
         onError(error instanceof Error ? error : new Error(String(error)), reading);
