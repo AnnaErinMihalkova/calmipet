@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
@@ -12,13 +12,14 @@ from django.db import transaction
 from datetime import timedelta
 from .models import (
     Reading, StressEvent, BreathingSession, VirtualPet, Streak,
-    Achievement, Unlockable, UserUnlockable, JournalEntry, UserProfile
+    Achievement, Unlockable, UserUnlockable, JournalEntry, UserProfile, PrivacySettings
 )
 from .serializers import (
     ReadingSerializer, StressEventSerializer, BreathingSessionSerializer,
     VirtualPetSerializer, StreakSerializer, AchievementSerializer,
     UnlockableSerializer, UserUnlockableSerializer, JournalEntrySerializer,
-    UserProfileSerializer, SignUpSerializer, LoginSerializer, UserSerializer
+    UserProfileSerializer, SignUpSerializer, LoginSerializer, UserSerializer,
+    CreateReadingDto, PrivacySettingsSerializer
 )
 
 
@@ -106,11 +107,35 @@ def logout_view(request):
 @csrf_exempt
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@csrf_exempt
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
 def delete_account(request):
+    """
+    Delete user account and all associated data (GDPR compliance).
+    This action is irreversible.
+    """
     user = request.user
+    
+    # Verify deletion intent (optional: require password confirmation)
+    confirm = request.data.get('confirm', False)
+    if not confirm:
+        return Response(
+            {'error': 'Deletion must be confirmed. Send {"confirm": true}.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Logout first
     logout(request)
+    
+    # Delete user (cascade will delete all related data)
+    # This includes: readings, stress events, breathing sessions, etc.
     user.delete()
-    return Response({'message': 'Account deleted'}, status=status.HTTP_200_OK)
+    
+    return Response(
+        {'message': 'Account and all associated data deleted successfully'},
+        status=status.HTTP_200_OK
+    )
 
 @csrf_exempt
 @api_view(['POST'])
@@ -200,6 +225,44 @@ def detect_stress_level(reading, user):
 
 # ==================== READINGS ====================
 
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])  # Allow unauthenticated requests for bracelet simulator
+def createReading(request):
+    """
+    Create a reading with userId, hr, optional hrv, and timestamp.
+    This endpoint accepts data from bracelet simulators or external devices.
+    """
+    serializer = CreateReadingDto(data=request.data)
+    
+    if serializer.is_valid():
+        reading = serializer.save()
+        
+        # Auto-detect stress for the user
+        stress_level, detected_by = detect_stress_level(reading, reading.user)
+        
+        if stress_level != 'low':
+            # Create stress event
+            stress_event = StressEvent.objects.create(
+                user=reading.user,
+                level=stress_level,
+                reading=reading,
+                detected_by=detected_by or 'sensor'
+            )
+            
+            # Update virtual pet mood
+            try:
+                pet = reading.user.virtual_pet
+                pet.update_mood_from_stress(stress_level)
+            except VirtualPet.DoesNotExist:
+                pass
+        
+        # Return the created reading
+        return Response(ReadingSerializer(reading).data, status=status.HTTP_201_CREATED)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ReadingViewSet(viewsets.ModelViewSet):
     queryset = Reading.objects.all()
     serializer_class = ReadingSerializer
@@ -232,26 +295,174 @@ class ReadingViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def export(self, request):
-        """Export user's readings as CSV"""
+        """Export user's readings as CSV or JSON based on format parameter"""
+        import csv
+        import json
+        from django.http import StreamingHttpResponse
+        from api.ml.stress_predictor import StressPredictor
+
+        format_type = request.query_params.get('format', 'csv').lower()
+        qs = self.get_queryset().order_by('ts')
+
+        if format_type == 'json':
+            # JSON export
+            data = [
+                {
+                    'id': r.id,
+                    'timestamp': r.ts.isoformat(),
+                    'hr_bpm': r.hr_bpm,
+                    'hrv_rmssd': r.hrv_rmssd,
+                    'posture_score': r.posture_score,
+                    'grip_force': r.grip_force,
+                    'breathing_rate': r.breathing_rate,
+                    'spo2': r.spo2,
+                }
+                for r in qs
+            ]
+            
+            response = Response(data, content_type='application/json')
+            filename = f"calmipet_readings_{timezone.now().date().isoformat()}.json"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            # CSV export (streaming)
+            class Echo:
+                """An object that implements just the write method of the file-like interface."""
+                def write(self, value):
+                    """Write the value by returning it, instead of storing in a buffer."""
+                    return value
+
+            predictor = StressPredictor()
+            
+            def stream_csv():
+                buffer = Echo()
+                writer = csv.writer(buffer)
+                
+                # Header
+                yield writer.writerow([
+                    'id', 'timestamp', 'hr_bpm', 'hrv_rmssd', 
+                    'hr_baseline', 'hrv_baseline', 'hr_deviation', 'hrv_deviation',
+                    'posture_score', 'grip_force', 'breathing_rate', 'spo2'
+                ])
+                
+                for r in qs:
+                    try:
+                        # Calculate features (same logic as ML export)
+                        baseline = predictor.get_user_baselines(request.user, r.id)
+                        hr_bpm = r.hr_bpm or 0
+                        hrv_rmssd = r.hrv_rmssd or 0
+                        hr_baseline = baseline['hr']
+                        hrv_baseline = baseline['hrv']
+                        hr_deviation = hr_bpm - hr_baseline
+                        hrv_deviation = hrv_rmssd - hrv_baseline
+                        
+                        yield writer.writerow([
+                            r.id,
+                            r.ts.isoformat(),
+                            r.hr_bpm if r.hr_bpm is not None else '',
+                            r.hrv_rmssd if r.hrv_rmssd is not None else '',
+                            f"{hr_baseline:.2f}",
+                            f"{hrv_baseline:.2f}",
+                            f"{hr_deviation:.2f}",
+                            f"{hrv_deviation:.2f}",
+                            r.posture_score if r.posture_score is not None else '',
+                            r.grip_force if r.grip_force is not None else '',
+                            r.breathing_rate if r.breathing_rate is not None else '',
+                            r.spo2 if r.spo2 is not None else '',
+                        ])
+                    except Exception:
+                        # Minimal error handling: skip malformed rows
+                        continue
+
+            response = StreamingHttpResponse(stream_csv(), content_type='text/csv')
+            filename = f"calmipet_readings_{timezone.now().date().isoformat()}.csv"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def export_ml_dataset(self, request):
+        """
+        Export full ML training dataset in CSV format.
+        
+        Includes only readings with associated stress events (labeled data).
+        Features: hr_bpm, hrv_rmssd, hr_deviation, hrv_deviation
+        Labels: stress_level
+        
+        No sensitive user information is included (no user IDs, emails, usernames).
+        
+        Access: Requires authentication. For production, consider restricting to staff/admin
+        since this exports all labeled data in the system.
+        """
         import csv
         from io import StringIO
-
-        qs = self.get_queryset()
+        from api.ml.stress_predictor import StressPredictor
+        
+        # Get all readings that have associated stress events (labeled data)
+        stress_events = StressEvent.objects.select_related('reading', 'user').filter(
+            reading__isnull=False
+        )
+        
+        if not stress_events.exists():
+            return Response(
+                {'error': 'No labeled data available for ML dataset export'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Prepare CSV
         output = StringIO()
         writer = csv.writer(output)
-        writer.writerow(['ts', 'hr_bpm', 'hrv_rmssd'])
-        for r in qs.order_by('ts'):
+        
+        # Write headers
+        writer.writerow([
+            'hr_bpm',
+            'hrv_rmssd',
+            'hr_baseline',
+            'hrv_baseline',
+            'hr_deviation',
+            'hrv_deviation',
+            'stress_level',
+            'timestamp'
+        ])
+        
+        predictor = StressPredictor()
+        
+        # Process each stress event with its reading
+        for event in stress_events:
+            reading = event.reading
+            
+            # Skip if reading doesn't have HR data (required feature)
+            if not reading or not reading.hr_bpm:
+                continue
+            
+            # Calculate user baseline
+            baseline = predictor.get_user_baselines(event.user, reading.id)
+            
+            # Calculate features
+            hr_bpm = reading.hr_bpm or 0
+            hrv_rmssd = reading.hrv_rmssd or 0
+            hr_baseline = baseline['hr']
+            hrv_baseline = baseline['hrv']
+            hr_deviation = hr_bpm - hr_baseline
+            hrv_deviation = hrv_rmssd - hrv_baseline
+            
+            # Write row (no sensitive user information)
             writer.writerow([
-                r.ts.isoformat(),
-                r.hr_bpm if r.hr_bpm is not None else '',
-                r.hrv_rmssd if r.hrv_rmssd is not None else '',
+                hr_bpm,
+                hrv_rmssd if hrv_rmssd else '',
+                hr_baseline,
+                hrv_baseline,
+                hr_deviation,
+                hrv_deviation if hrv_rmssd else '',
+                event.level,  # Label
+                reading.ts.isoformat() if reading.ts else '',
             ])
-
+        
         data = output.getvalue()
         output.close()
-
+        
+        # Return as downloadable CSV
         response = Response(data, content_type='text/csv')
-        filename = f"calmipet_readings_{timezone.now().date().isoformat()}.csv"
+        filename = f"ml_dataset_{timezone.now().date().isoformat()}.csv"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
@@ -671,3 +882,30 @@ def mood_meter(request):
         'recent_readings': ReadingSerializer(recent_readings, many=True).data,
         'mood_score': pet.mood_score if pet_data else 0.5
     })
+
+
+# ==================== PRIVACY SETTINGS ====================
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def privacy_settings(request):
+    """
+    Get or update user privacy settings.
+    GET: Retrieve current privacy settings
+    PUT/PATCH: Update privacy settings
+    """
+    user = request.user
+    
+    # Get or create privacy settings
+    privacy_settings_obj, created = PrivacySettings.objects.get_or_create(user=user)
+    
+    if request.method == 'GET':
+        serializer = PrivacySettingsSerializer(privacy_settings_obj)
+        return Response(serializer.data)
+    
+    # Update settings
+    serializer = PrivacySettingsSerializer(privacy_settings_obj, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
