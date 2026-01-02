@@ -27,6 +27,10 @@ export const userApi = {
     const res = await client.post('/auth/update/', data, { headers: { Authorization: `Bearer ${accessToken}` } })
     return res.data
   },
+  resetData: async (accessToken: string) => {
+    const res = await client.post('/privacy/reset-data/', { confirm: true }, { headers: { Authorization: `Bearer ${accessToken}` } })
+    return res.data
+  },
 }
 
 export const readingsApi = {

@@ -2,10 +2,11 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from api.views import (
+
     ReadingViewSet, StressEventViewSet, BreathingSessionViewSet,
     VirtualPetViewSet, StreakViewSet, AchievementViewSet,
     UnlockableViewSet, UserUnlockableViewSet, JournalEntryViewSet,
-    UserProfileViewSet, signup, login_view, current_user, logout_view, delete_account, update_account, analytics, mood_meter, refresh_token, createReading, privacy_settings
+    UserProfileViewSet, signup, login_view, current_user, logout_view, delete_account, update_account, analytics, mood_meter, refresh_token, createReading, privacy_settings, delete_user_data, export_readings
 )
 
 router = DefaultRouter()
@@ -24,6 +25,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Bracelet simulator endpoint (CSRF-exempt, not colliding with router detail routes)
     path('api/bracelet/readings/', createReading, name='create_reading'),
+    # Explicit export endpoint before router include to ensure match
+    path('api/readings/export/', export_readings, name='readings_export'),
+    # Alternative explicit export endpoint to avoid router conflicts
+    path('api/export-readings/', export_readings, name='export_readings_alt'),
     path('api/', include(router.urls)),
     path('api/auth/signup/', signup, name='signup'),
     path('api/auth/login/', login_view, name='login'),
@@ -33,6 +38,7 @@ urlpatterns = [
     path('api/auth/delete/', delete_account, name='delete_account'),
     path('api/auth/update/', update_account, name='update_account'),
     path('api/privacy/', privacy_settings, name='privacy_settings'),
+    path('api/privacy/reset-data/', delete_user_data, name='reset_user_data'),
     path('api/analytics/', analytics, name='analytics'),
     path('api/mood-meter/', mood_meter, name='mood_meter'),
     # Aliases for mobile app compatibility

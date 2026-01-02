@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework import status
-from .models import Reading
+from .models import Reading, UserProfile, VirtualPet, Streak, StressEvent, BreathingSession, Achievement, UserUnlockable, JournalEntry
 
 
 class AuthenticationTests(TestCase):
@@ -132,7 +132,7 @@ class AuthenticationTests(TestCase):
     def test_get_current_user_unauthenticated(self):
         """Test getting current user fails when not authenticated"""
         response = self.client.get(self.me_url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
     
     def test_session_persistence(self):
         """Test that session persists after login"""
@@ -209,7 +209,7 @@ class ReadingsCRUDTests(TestCase):
             'hrv_rmssd': 45.5
         }
         response = self.client.post(self.readings_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
     
     def test_list_readings_authenticated(self):
         """Test listing readings when authenticated"""
@@ -232,7 +232,7 @@ class ReadingsCRUDTests(TestCase):
     def test_list_readings_unauthenticated(self):
         """Test listing readings fails when not authenticated"""
         response = self.client.get(self.readings_url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
     
     def test_get_single_reading(self):
         """Test retrieving a single reading"""
@@ -300,3 +300,104 @@ class ReadingsCRUDTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         self.assertFalse(Reading.objects.filter(id=reading.id).exists())
+
+
+class PrivacyTests(TestCase):
+    """Test privacy features including data deletion"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='privacyuser',
+            email='privacy@example.com',
+            password='TestPassword123!'
+        )
+        self.client.force_authenticate(user=self.user)
+        self.reset_url = '/api/privacy/reset-data/'
+        
+        # Create some data
+        Reading.objects.create(user=self.user, hr_bpm=80, hrv_rmssd=40)
+        
+        # Ensure profile exists and has data
+        if not hasattr(self.user, 'profile'):
+            UserProfile.objects.create(user=self.user)
+        self.user.profile.coins = 100
+        self.user.profile.save()
+        
+        # Ensure pet exists and has data
+        if not hasattr(self.user, 'virtual_pet'):
+            VirtualPet.objects.create(user=self.user)
+        self.user.virtual_pet.name = 'OldName'
+        self.user.virtual_pet.save()
+        
+    def test_reset_data_without_confirmation(self):
+        """Test reset fails without confirmation"""
+        response = self.client.post(self.reset_url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+    def test_reset_data_success(self):
+        """Test successful data reset"""
+        response = self.client.post(self.reset_url, {'confirm': True}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify Readings are gone
+        self.assertEqual(Reading.objects.filter(user=self.user).count(), 0)
+        
+        # Verify Profile reset
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.coins, 0)
+        
+        # Verify Pet reset
+        self.user.virtual_pet.refresh_from_db()
+        self.assertEqual(self.user.virtual_pet.name, 'Buddy')
+
+
+class ExportEndpointTests(TestCase):
+    """Basic tests for readings export endpoint and rate limiting"""
+    
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='exportuser',
+            email='export@example.com',
+            password='TestPassword123!'
+        )
+        self.client.force_authenticate(user=self.user)
+        self.export_csv_url = '/api/export-readings/?format=csv'
+        self.export_json_url = '/api/export-readings/?format=json'
+        
+        # Seed some readings
+        Reading.objects.create(user=self.user, hr_bpm=70, hrv_rmssd=50.0)
+        Reading.objects.create(user=self.user, hr_bpm=80, hrv_rmssd=40.0)
+    
+    def test_export_csv_success(self):
+        """Export CSV returns streaming CSV with correct headers"""
+        response = self.client.get(self.export_csv_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertIn('attachment; filename=', response['Content-Disposition'])
+        
+        # Read streaming content
+        content = b''.join(response.streaming_content).decode('utf-8')
+        self.assertIn('id,timestamp,hr_bpm,hrv_rmssd', content.splitlines()[0])
+    
+    def test_export_json_success(self):
+        """Export JSON returns array of reading objects"""
+        response = self.client.get(self.export_json_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+        self.assertGreaterEqual(len(response.data), 2)
+        self.assertIn('hr_bpm', response.data[0])
+    
+    def test_export_rate_limiting(self):
+        """Rate limiting triggers 429 on fourth request within window"""
+        # Allow first three requests
+        for i in range(3):
+            r = self.client.get(self.export_csv_url)
+            self.assertEqual(r.status_code, status.HTTP_200_OK)
+        # Fourth should be throttled
+        r4 = self.client.get(self.export_csv_url)
+        self.assertEqual(r4.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

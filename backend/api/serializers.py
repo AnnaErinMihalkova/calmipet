@@ -70,8 +70,23 @@ class LoginSerializer(serializers.Serializer):
 class ReadingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reading
-        fields = '__all__'
-        read_only_fields = ('user', 'ts')
+        fields = ('id', 'ts', 'hr_bpm', 'hrv_rmssd', 'posture_score', 'grip_force', 'breathing_rate', 'spo2')
+        read_only_fields = ('ts',)
+
+    def validate_hr_bpm(self, value):
+        if not (30 <= value <= 220):
+            raise serializers.ValidationError("Heart rate must be between 30 and 220 BPM.")
+        return value
+
+    def validate_spo2(self, value):
+        if value is not None and not (0 <= value <= 100):
+            raise serializers.ValidationError("SpO2 must be between 0 and 100.")
+        return value
+
+    def validate_posture_score(self, value):
+        if value is not None and not (0 <= value <= 1):
+            raise serializers.ValidationError("Posture score must be between 0 and 1.")
+        return value
 
 
 class CreateReadingDto(serializers.Serializer):
@@ -154,42 +169,51 @@ class StressEventSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = StressEvent
-        fields = '__all__'
-        read_only_fields = ('user', 'ts', 'resolved_at')
+        fields = ('id', 'ts', 'level', 'reading', 'detected_by', 'resolved', 'resolved_at')
+        read_only_fields = ('ts', 'resolved_at')
 
 
 class BreathingSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = BreathingSession
-        fields = '__all__'
-        read_only_fields = ('user', 'started_at', 'completed_at', 'duration_seconds')
+        fields = ('id', 'started_at', 'completed_at', 'duration_seconds', 'exercise_type', 'completed', 'stress_event')
+        read_only_fields = ('started_at', 'completed_at', 'duration_seconds')
 
 
 class VirtualPetSerializer(serializers.ModelSerializer):
     class Meta:
         model = VirtualPet
-        fields = '__all__'
-        read_only_fields = ('user', 'created_at', 'last_interaction')
+        fields = (
+            'id', 'pet_type', 'name', 'level', 'experience_points', 
+            'mood', 'mood_score', 'health', 'last_fed', 
+            'last_interaction', 'created_at', 'accessories', 'environment'
+        )
+        read_only_fields = (
+            'level', 'experience_points', 'mood', 'mood_score', 
+            'health', 'last_fed', 'last_interaction', 'created_at', 
+            'accessories'
+        )
 
 
 class StreakSerializer(serializers.ModelSerializer):
     class Meta:
         model = Streak
-        fields = '__all__'
-        read_only_fields = ('user',)
+        fields = ('id', 'current_streak', 'longest_streak', 'last_activity_date')
+        read_only_fields = ('current_streak', 'longest_streak', 'last_activity_date')
 
 
 class AchievementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Achievement
-        fields = '__all__'
-        read_only_fields = ('user', 'unlocked_at')
+        fields = ('id', 'achievement_id', 'achievement_type', 'title', 'description', 'unlocked_at', 'icon')
+        read_only_fields = ('achievement_id', 'achievement_type', 'title', 'description', 'unlocked_at', 'icon')
 
 
 class UnlockableSerializer(serializers.ModelSerializer):
     class Meta:
         model = Unlockable
-        fields = '__all__'
+        fields = ('id', 'unlockable_id', 'unlockable_type', 'name', 'description', 'required_level', 'required_streak', 'required_achievement', 'icon', 'cost_coins')
+        read_only_fields = ('unlockable_id', 'unlockable_type', 'name', 'description', 'required_level', 'required_streak', 'required_achievement', 'icon', 'cost_coins')
 
 
 class UserUnlockableSerializer(serializers.ModelSerializer):
@@ -198,8 +222,8 @@ class UserUnlockableSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = UserUnlockable
-        fields = '__all__'
-        read_only_fields = ('user', 'unlocked_at')
+        fields = ('id', 'unlockable', 'unlockable_id', 'unlocked_at', 'is_active')
+        read_only_fields = ('unlocked_at',)
 
     def create(self, validated_data):
         unlockable_id = validated_data.pop('unlockable_id', None)
@@ -211,8 +235,8 @@ class UserUnlockableSerializer(serializers.ModelSerializer):
 class JournalEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = JournalEntry
-        fields = '__all__'
-        read_only_fields = ('user', 'created_at', 'updated_at')
+        fields = ('id', 'created_at', 'updated_at', 'mood', 'content', 'tags', 'stress_level')
+        read_only_fields = ('created_at', 'updated_at')
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -220,8 +244,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = UserProfile
-        fields = '__all__'
-        read_only_fields = ('user', 'created_at')
+        fields = ('id', 'user', 'coins', 'total_breathing_sessions', 'total_stress_events_resolved', 'average_hr_bpm', 'average_hrv', 'created_at', 'notifications_enabled', 'haptic_feedback_enabled')
+        read_only_fields = ('user', 'coins', 'total_breathing_sessions', 'total_stress_events_resolved', 'average_hr_bpm', 'average_hrv', 'created_at')
 
 
 class PrivacySettingsSerializer(serializers.ModelSerializer):
@@ -229,5 +253,5 @@ class PrivacySettingsSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PrivacySettings
-        fields = '__all__'
+        fields = ('id', 'user', 'share_analytics', 'share_research', 'data_retention_days', 'allow_data_export', 'created_at', 'updated_at')
         read_only_fields = ('user', 'created_at', 'updated_at')

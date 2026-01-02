@@ -1,9 +1,9 @@
 import React from 'react'
 import { View, Text, Button, StyleSheet, ScrollView, Alert, Platform, Animated } from 'react-native'
 import HRLineChart from '../components/HRLineChart'
-import { File, Paths } from 'expo-file-system'
+import * as FileSystem from 'expo-file-system'
 import * as Sharing from 'expo-sharing'
-import { readingsApi, wellnessApi } from '../services/api'
+import { readingsApi, wellnessApi, userApi } from '../services/api'
 import { getTokens } from '../services/storage'
 
 type Props = { user: any; onLogout: () => void; onAddReading: () => void; onOpenBreathing: () => void }
@@ -45,46 +45,102 @@ export default function HomeScreen({ user, onLogout, onAddReading, onOpenBreathi
     }
   }, [scaleAnim])
 
-  const exportCSV = async () => {
+  const [isExporting, setIsExporting] = React.useState(false)
+
+  const exportCSV = () => {
+    Alert.alert(
+      'Export Data',
+      'Download a CSV file of all your health readings and sessions?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Export CSV', 
+          onPress: performExport 
+        }
+      ]
+    )
+  }
+
+  const performExport = async () => {
+    if (isExporting) return
+    setIsExporting(true)
     try {
       const { accessToken } = await getTokens()
       if (!accessToken) {
         throw new Error('Not authenticated')
       }
-      const result = await readingsApi.list(accessToken, 1, 1000)
-      const items = Array.isArray(result.items) ? result.items : []
-      if (items.length === 0) {
-        throw new Error('No readings to export')
-      }
-
-      const header = ['id', 'timestamp', 'hr_bpm', 'hrv_rmssd', 'user_id']
-      const rows = items.map((r: any) => [
-        r.id,
-        r.createdAt,
-        r.hr ?? '',
-        r.hrv ?? '',
-        r.userId ?? '',
-      ])
-      const csv = [header.join(','), ...rows.map((cols) => cols.map((v) => String(v)).join(','))].join('\n')
 
       if (Platform.OS === 'web') {
-        Alert.alert('Export not supported', 'Please use the iOS app to export.')
+        Alert.alert('Export not supported', 'Please use the iOS/Android app to export.')
+        setIsExporting(false)
         return
       }
 
-      const fileName = `readings_${Date.now()}.csv`
-      const file = new File(Paths.cache, fileName)
-      file.create({ overwrite: true })
-      file.write(csv, { encoding: 'utf8' })
+      // Get API base URL (fallback to localhost if not set)
+      const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000/api'
+      const url = `${apiBase}/readings/export/?format=csv`
+      const fileName = `calmipet_readings_${Date.now()}.csv`
+      const dir = (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory || ''
+      const fileUri = `${dir}${fileName}`
 
-      await Sharing.shareAsync(file.uri, {
+      const downloadRes = await FileSystem.downloadAsync(url, fileUri, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (downloadRes.status !== 200) {
+        throw new Error('Failed to download export file')
+      }
+
+      await Sharing.shareAsync(downloadRes.uri, {
         mimeType: 'text/csv',
         UTI: 'public.comma-separated-values-text',
       })
+      
+      Alert.alert('Success', 'Data exported successfully!')
     } catch (e: any) {
+      console.error(e)
       const msg = e?.message || 'Could not export readings'
       Alert.alert('Export failed', msg)
+    } finally {
+      setIsExporting(false)
     }
+  }
+
+  const [isDeleting, setIsDeleting] = React.useState(false)
+
+  const handleDeleteData = () => {
+    Alert.alert(
+      'Delete All Data?',
+      'This action is irreversible. All your readings, pet progress, and stats will be wiped forever. Your account will remain.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true)
+            try {
+              const { accessToken } = await getTokens()
+              if (!accessToken) throw new Error('Not authenticated')
+              
+              await userApi.resetData(accessToken)
+              Alert.alert('Success', 'All your data has been reset.')
+              
+              // Refresh local state
+              setStreak(null)
+              setPet(null)
+            } catch (e: any) {
+              const msg = e?.response?.data?.error || e?.message || 'Deletion failed'
+              Alert.alert('Error', msg)
+            } finally {
+              setIsDeleting(false)
+            }
+          },
+        },
+      ]
+    )
   }
 
   return (
@@ -102,7 +158,18 @@ export default function HomeScreen({ user, onLogout, onAddReading, onOpenBreathi
           <View style={{ height: 8 }} />
           <Button title="Breathing Coach" onPress={onOpenBreathing} />
           <View style={{ height: 8 }} />
-          <Button title="Export CSV" onPress={exportCSV} />
+          <Button 
+            title={isExporting ? "Exporting..." : "Export Data (CSV)"} 
+            onPress={exportCSV} 
+            disabled={isExporting}
+          />
+          <View style={{ height: 8 }} />
+          <Button 
+            title={isDeleting ? "Deleting..." : "Delete All Data"} 
+            onPress={handleDeleteData} 
+            color="#ff4444"
+            disabled={isDeleting}
+          />
           <View style={{ height: 8 }} />
           <Button title="Log Out" onPress={onLogout} color="#999" />
         </View>

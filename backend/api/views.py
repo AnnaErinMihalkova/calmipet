@@ -1,5 +1,6 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes, action, throttle_classes
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -293,7 +294,7 @@ class ReadingViewSet(viewsets.ModelViewSet):
             except VirtualPet.DoesNotExist:
                 pass
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], throttle_classes=[ScopedRateThrottle])
     def export(self, request):
         """Export user's readings as CSV or JSON based on format parameter"""
         import csv
@@ -376,8 +377,11 @@ class ReadingViewSet(viewsets.ModelViewSet):
 
             response = StreamingHttpResponse(stream_csv(), content_type='text/csv')
             filename = f"calmipet_readings_{timezone.now().date().isoformat()}.csv"
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Content-Disposition'] = f'attachment; filename=\"{filename}\"'
             return response
+
+    # Set scoped throttle name for export action
+    export.throttle_scope = 'readings_export'
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def export_ml_dataset(self, request):
@@ -468,6 +472,83 @@ class ReadingViewSet(viewsets.ModelViewSet):
 
 
 # ==================== STRESS EVENTS ====================
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@throttle_classes([ScopedRateThrottle])
+def export_readings(request):
+    """Standalone export endpoint for user's readings (CSV or JSON)"""
+    import csv
+    import json
+    from django.http import StreamingHttpResponse
+    from api.ml.stress_predictor import StressPredictor
+    
+    format_type = request.query_params.get('format', 'csv').lower()
+    qs = Reading.objects.filter(user=request.user).order_by('ts')
+    
+    if format_type == 'json':
+        data = [
+            {
+                'id': r.id,
+                'timestamp': r.ts.isoformat(),
+                'hr_bpm': r.hr_bpm,
+                'hrv_rmssd': r.hrv_rmssd,
+                'posture_score': r.posture_score,
+                'grip_force': r.grip_force,
+                'breathing_rate': r.breathing_rate,
+                'spo2': r.spo2,
+            }
+            for r in qs
+        ]
+        response = Response(data, content_type='application/json')
+        filename = f"calmipet_readings_{timezone.now().date().isoformat()}.json"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    else:
+        class Echo:
+            def write(self, value):
+                return value
+        
+        predictor = StressPredictor()
+        
+        def stream_csv():
+            buffer = Echo()
+            writer = csv.writer(buffer)
+            yield writer.writerow([
+                'id', 'timestamp', 'hr_bpm', 'hrv_rmssd', 
+                'hr_baseline', 'hrv_baseline', 'hr_deviation', 'hrv_deviation',
+                'posture_score', 'grip_force', 'breathing_rate', 'spo2'
+            ])
+            for r in qs:
+                try:
+                    baseline = predictor.get_user_baselines(request.user, r.id)
+                    hr_bpm = r.hr_bpm or 0
+                    hrv_rmssd = r.hrv_rmssd or 0
+                    hr_baseline = baseline['hr']
+                    hrv_baseline = baseline['hrv']
+                    hr_deviation = hr_bpm - hr_baseline
+                    hrv_deviation = hrv_rmssd - hrv_baseline
+                    yield writer.writerow([
+                        r.id,
+                        r.ts.isoformat(),
+                        r.hr_bpm if r.hr_bpm is not None else '',
+                        r.hrv_rmssd if r.hrv_rmssd is not None else '',
+                        f"{hr_baseline:.2f}",
+                        f"{hrv_baseline:.2f}",
+                        f"{hr_deviation:.2f}",
+                        f"{hrv_deviation:.2f}",
+                        r.posture_score if r.posture_score is not None else '',
+                        r.grip_force if r.grip_force is not None else '',
+                        r.breathing_rate if r.breathing_rate is not None else '',
+                        r.spo2 if r.spo2 is not None else '',
+                    ])
+                except Exception:
+                    continue
+        
+        response = StreamingHttpResponse(stream_csv(), content_type='text/csv')
+        filename = f"calmipet_readings_{timezone.now().date().isoformat()}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+export_readings.throttle_scope = 'readings_export'
 
 class StressEventViewSet(viewsets.ModelViewSet):
     queryset = StressEvent.objects.all()
@@ -909,3 +990,70 @@ def privacy_settings(request):
         serializer.save()
         return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_user_data(request):
+    """
+    Privacy Reset: Delete all user-owned data but keep the account.
+    This action is irreversible.
+    Requires {"confirm": true} in request body.
+    """
+    user = request.user
+    
+    # Verify confirmation
+    confirm = request.data.get('confirm', False)
+    if not confirm:
+        return Response(
+            {'error': 'Deletion must be confirmed. Send {"confirm": true}.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+    try:
+        with transaction.atomic():
+            # Delete historical data
+            Reading.objects.filter(user=user).delete()
+            StressEvent.objects.filter(user=user).delete()
+            BreathingSession.objects.filter(user=user).delete()
+            Achievement.objects.filter(user=user).delete()
+            UserUnlockable.objects.filter(user=user).delete()
+            JournalEntry.objects.filter(user=user).delete()
+            
+            # Reset One-to-One states (preserve ID but reset fields)
+            
+            # Virtual Pet
+            if hasattr(user, 'virtual_pet'):
+                pet = user.virtual_pet
+                pet.pet_type = 'cat'
+                pet.name = 'Buddy'
+                pet.level = 1
+                pet.experience_points = 0
+                pet.mood = 'calm'
+                pet.mood_score = 0.5
+                pet.health = 100
+                pet.accessories = []
+                pet.environment = 'default'
+                pet.save()
+            
+            # Streak
+            if hasattr(user, 'streak'):
+                streak = user.streak
+                streak.current_streak = 0
+                streak.longest_streak = 0
+                streak.last_activity_date = None
+                streak.save()
+                
+            # Profile
+            if hasattr(user, 'profile'):
+                profile = user.profile
+                profile.coins = 0
+                profile.total_breathing_sessions = 0
+                profile.total_stress_events_resolved = 0
+                profile.average_hr_bpm = None
+                profile.average_hrv = None
+                profile.save()
+                
+        return Response({'message': 'All user data has been successfully reset.'})
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
