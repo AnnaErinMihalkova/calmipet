@@ -1,11 +1,18 @@
 import { Request, Response, NextFunction } from 'express'
-import { listReadings, getReading, createReading, updateReading, deleteReading } from './service'
+import { listReadings, getReading, createReading, updateReading, deleteReading, findPaginated } from './service'
 
 export const index = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = Number((req as any).userId)
-    const items = await listReadings(userId)
-    res.status(200).json(items)
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    
+    // Validate page and limit
+    const validPage = Math.max(1, page)
+    const validLimit = Math.max(1, Math.min(100, limit)) // Cap limit at 100
+    
+    const result = await findPaginated(userId, validPage, validLimit)
+    res.status(200).json(result)
   } catch (err) { next(err) }
 }
 

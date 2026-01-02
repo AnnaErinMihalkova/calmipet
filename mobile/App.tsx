@@ -3,17 +3,26 @@ import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
 import AuthScreen from './src/screens/AuthScreen'
 import HomeScreen from './src/screens/HomeScreen'
+import AddReadingScreen from './src/screens/AddReadingScreen'
+import BreathingCoachScreen from './src/screens/BreathingCoachScreen'
 import { AuthProvider, useAuth } from './src/context/AuthContext'
 
 function AppContent() {
   const { user, logout } = useAuth()
+  const [showAddReading, setShowAddReading] = React.useState(false)
+  const [showBreathing, setShowBreathing] = React.useState(false)
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>CalmiPet Mobile</Text>
       {!user ? (
         <AuthScreen />
+      ) : showBreathing ? (
+        <BreathingCoachScreen onBack={() => setShowBreathing(false)} />
+      ) : showAddReading ? (
+        <AddReadingScreen onBack={() => setShowAddReading(false)} />
       ) : (
-        <HomeScreen user={user} onLogout={logout} />
+        <HomeScreen user={user} onLogout={logout} onAddReading={() => setShowAddReading(true)} onOpenBreathing={() => setShowBreathing(true)} />
       )}
       <StatusBar style="auto" />
     </View>

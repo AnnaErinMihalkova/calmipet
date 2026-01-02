@@ -29,10 +29,12 @@ model RefreshToken {
 }
 
 model Reading {
-  id        String   @id @default(cuid())
-  title     String
-  value     Int
-  createdAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  title     String?   // Legacy field, kept for backward compatibility
+  value     Int?      // Legacy field, kept for backward compatibility
+  hr        Int?      // Heart rate in BPM
+  hrv       Float?    // Heart rate variability
+  createdAt DateTime  @default(now())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 }

@@ -289,3 +289,27 @@ class UserProfile(models.Model):
     
     def __str__(self):
         return f"{self.user.username}'s profile"
+
+
+class PrivacySettings(models.Model):
+    """User privacy preferences and GDPR compliance settings"""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='privacy_settings')
+    
+    # Data sharing preferences
+    share_analytics = models.BooleanField(default=False, help_text="Allow anonymized analytics")
+    share_research = models.BooleanField(default=False, help_text="Allow data for research (anonymized)")
+    
+    # Data retention
+    data_retention_days = models.PositiveIntegerField(
+        default=365,
+        help_text="Days to retain data (0 = indefinite)"
+    )
+    
+    # Export preferences
+    allow_data_export = models.BooleanField(default=True, help_text="User can export their data")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.user.username}'s privacy settings"

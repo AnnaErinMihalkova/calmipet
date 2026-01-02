@@ -5,7 +5,7 @@ from api.views import (
     ReadingViewSet, StressEventViewSet, BreathingSessionViewSet,
     VirtualPetViewSet, StreakViewSet, AchievementViewSet,
     UnlockableViewSet, UserUnlockableViewSet, JournalEntryViewSet,
-    UserProfileViewSet, signup, login_view, current_user, logout_view, delete_account, update_account, analytics, mood_meter, refresh_token, createReading
+    UserProfileViewSet, signup, login_view, current_user, logout_view, delete_account, update_account, analytics, mood_meter, refresh_token, createReading, privacy_settings
 )
 
 router = DefaultRouter()
@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/auth/logout/', logout_view, name='logout'),
     path('api/auth/delete/', delete_account, name='delete_account'),
     path('api/auth/update/', update_account, name='update_account'),
+    path('api/privacy/', privacy_settings, name='privacy_settings'),
     path('api/analytics/', analytics, name='analytics'),
     path('api/mood-meter/', mood_meter, name='mood_meter'),
     # Aliases for mobile app compatibility

@@ -12,6 +12,10 @@ const BreathingCoach: React.FC<Props> = ({ open, onClose, onCompleted }) => {
   const [sessionId, setSessionId] = React.useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = React.useState<number>(60);
   const [running, setRunning] = React.useState<boolean>(false);
+  const progress = 60 - secondsLeft;
+  const cycle = progress % 10;
+  const phase = cycle < 4 ? 'Inhale…' : cycle < 6 ? 'Hold…' : 'Exhale…';
+  const scale = cycle < 4 ? 1 + cycle * 0.06 : cycle < 6 ? 1.24 : 1.24 - (cycle - 6) * 0.06;
 
   React.useEffect(() => {
     if (!open) return;
@@ -51,7 +55,7 @@ const BreathingCoach: React.FC<Props> = ({ open, onClose, onCompleted }) => {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-      <div className="login-card" style={{ maxWidth: 480 }}>
+      <div className="login-card" style={{ maxWidth: 600 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ marginTop: 0 }}>Calming Breath</h2>
           <div style={{ color: 'var(--text-secondary)' }}>{running ? 'Listening' : 'Idle'}</div>
@@ -59,22 +63,28 @@ const BreathingCoach: React.FC<Props> = ({ open, onClose, onCompleted }) => {
 
         <div style={{ display: 'grid', placeItems: 'center', margin: '16px 0 12px' }}>
           <div style={{
-            width: 220,
-            height: 220,
+            width: 280,
+            height: 280,
             borderRadius: '50%',
             background: 'radial-gradient(60% 60% at 50% 50%, rgba(124,58,237,0.25), transparent)',
             display: 'grid',
             placeItems: 'center',
             boxShadow: '0 0 40px rgba(124,58,237,0.3) inset'
           }}>
-            <div style={{ width: 160, height: 160, borderRadius: '50%', background: 'var(--bg-tertiary)', border: '2px solid var(--border-color)', display: 'grid', placeItems: 'center' }}>
-              <div style={{ fontSize: 36, fontWeight: 800 }}>{secondsLeft}s</div>
+            <div style={{ display: 'grid', placeItems: 'center', gap: 12 }}>
+              <div style={{
+                fontSize: 100,
+                transform: `scale(${running ? scale : 1})`,
+                transition: 'transform 1s ease-in-out',
+                lineHeight: 1
+              }}>🦝</div>
+              <div style={{ fontSize: 32, fontWeight: 800 }}>{secondsLeft}s</div>
             </div>
           </div>
         </div>
 
         <div style={{ textAlign: 'center', marginBottom: 16, fontSize: 18, fontWeight: 700 }}>
-          {running ? (secondsLeft % 8 < 4 ? 'Inhale…' : 'Exhale…') : 'Press Start'}
+          {running ? phase : 'Press Start'}
         </div>
 
         <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
