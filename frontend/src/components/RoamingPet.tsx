@@ -4,8 +4,16 @@ import './RoamingPet.css';
 const RoamingPet: React.FC = () => {
   const [animationClass, setAnimationClass] = useState('');
   const [isVisible, setIsVisible] = useState(false);
+  const [petEmoji, setPetEmoji] = useState('🦝');
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem('hb_user_info');
+      const info = raw ? JSON.parse(raw) : {};
+      const map: Record<string, string> = { raccoon: '🦝', cat: '🐱', fox: '🦊', owl: '🦉' };
+      const sel = info?.petAnimal || 'raccoon';
+      setPetEmoji(map[sel] || '🦝');
+    } catch {}
     // Randomly trigger animations
     const triggerAnimation = () => {
       const animations = ['peek-bottom', 'walk-across', 'bounce-corner'];
@@ -44,7 +52,7 @@ const RoamingPet: React.FC = () => {
 
   return (
     <div className={`roaming-pet-container ${animationClass}`}>
-      <div className="pet-emoji">🦝</div>
+      <div className="pet-emoji">{petEmoji}</div>
       {animationClass === 'peek-bottom' && (
         <div className="speech-bubble">Remember to breathe!</div>
       )}

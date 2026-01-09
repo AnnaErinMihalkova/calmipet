@@ -1,165 +1,169 @@
-# CalmiPet - Human Wellness Monitoring Platform
+# CalmIPet - Stress Monitoring & Mental Wellness App
 
-## 🐾 Project Overview
+A comprehensive mental wellness application that combines wearable device integration, machine learning stress prediction, and gamified breathing exercises to help users manage stress and improve their mental health.
 
-CalmiPet is a human wellness monitoring platform that uses a friendly pet representation to make health tracking more approachable and engaging. While the branding features adorable pet imagery, this Django-based backend API is designed to track and analyze human health metrics, particularly focusing on heart rate and heart rate variability (HRV) data. The platform provides a robust foundation for building wellness applications that help users monitor their health in a stress-free, pet-friendly interface.
+## 🌟 Overview
 
-## 🚀 Current Development Status
+CalmIPet is a full-stack application designed to monitor stress levels through wearable device data (primarily heart rate readings) and provide personalized wellness recommendations. The app features an adorable pet companion that responds to your stress levels and guides you through breathing exercises.
 
-**Phase**: Initial Backend Development  
-**Status**: Core API Structure Complete  
-**Last Updated**: December 2024
+## ✨ Key Features
 
-### ✅ Completed Features
-- **RESTful API**: Complete API structure with Django REST Framework
-- **Authentication**: User authentication system with Django's built-in auth
-- **Data Models**: Core models for human wellness monitoring (Readings, Events)
-- **API Endpoints**: ViewSets for managing personal health data
-- **Database**: SQLite database with proper schema design
-- **CORS Support**: Cross-origin resource sharing enabled for frontend integration
-- **Pet-Friendly Branding**: Approachable interface design using pet imagery
+### Core Functionality
+- **Stress Level Monitoring**: Real-time heart rate tracking and stress prediction using machine learning
+- **Personalized Pet Companion**: Choose from 4 adorable animals (Raccoon 🦝, Cat 🐱, Fox 🦊, Owl 🦉) that serve as your wellness coach
+- **Breathing Exercises**: Guided breathing sessions with visual feedback and progress tracking
+- **Achievement System**: Gamified wellness journey with unlockable achievements
+- **Progress Tracking**: Visual charts showing stress trends and improvement over time
 
-### 🔄 In Progress
-- Frontend integration preparation
-- Data visualization capabilities
-- Mobile app API optimization
+### User Experience
+- **Responsive Web Interface**: Clean, modern design optimized for desktop and mobile
+- **Dark/Light Theme Toggle**: Personalized viewing experience
+- **Intuitive Navigation**: Simple, user-friendly interface
+- **Real-time Updates**: Live stress monitoring and instant feedback
 
-## 🛠️ Technology Stack
+### Technical Features
+- **Machine Learning Integration**: Advanced stress prediction algorithms
+- **RESTful API**: Secure backend with JWT authentication
+- **Real-time Communication**: WebSocket support for live updates
+- **Data Export**: Export your wellness data in multiple formats
+- **Rate Limiting**: API protection and performance optimization
 
-### Backend
-- **Framework**: Django 5.2.7
-- **API**: Django REST Framework
-- **Database**: SQLite (Development), PostgreSQL (Production-ready)
-- **Authentication**: Django's built-in authentication system
-- **CORS**: django-cors-headers for cross-origin requests
+## 🏗️ Architecture
 
-### Development Environment
-- **Python**: 3.11+
-- **Virtual Environment**: venv
-- **Version Control**: Git with GitHub integration
+### Backend (Django + Django REST Framework)
+- **Authentication**: JWT-based secure user authentication
+- **API Endpoints**: RESTful endpoints for readings, users, achievements, and sessions
+- **Machine Learning**: Integrated ML models for stress prediction
+- **Database**: PostgreSQL for data persistence
+- **Real-time**: WebSocket support via Django Channels
 
-## 📊 Data Models
+### Frontend (React + TypeScript)
+- **Modern Stack**: React 19 with TypeScript for type safety
+- **State Management**: React hooks and context for state management
+- **Styling**: CSS modules with theme support
+- **API Integration**: Axios for backend communication
+- **Port**: Runs on port 3001 (configurable)
 
-### Reading Model
-Tracks human wellness measurements with the following fields:
-- `user`: Foreign key to the user who recorded the reading
-- `ts`: Timestamp of the reading (auto-generated)
-- `hr_bpm`: Heart rate in beats per minute (required)
-- `hrv_rmssd`: Heart rate variability RMSSD metric (optional)
+### Mobile (React Native/Expo)
+- **Cross-platform**: iOS and Android support
+- **Native Features**: Device sensor integration
+- **Offline Support**: Local data storage capabilities
 
-### Event Model
-*(Structure available in models - additional functionality being developed)*
-
-## 🔗 API Endpoints
-
-### Authentication Required Endpoints
-- `GET /api/readings/`: List all readings for authenticated user
-- `POST /api/readings/`: Create new reading
-- `GET /api/readings/{id}/`: Retrieve specific reading
-- `PUT /api/readings/{id}/`: Update reading
-- `DELETE /api/readings/{id}/`: Delete reading
-
-### Event Endpoints
-- Similar CRUD operations for event management
-
-## 🏃‍♂️ Quick Start
+## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.11 or higher
-- pip package manager
+- Python 3.8+
+- Node.js 16+
+- PostgreSQL (or SQLite for development)
 - Git
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/AnnaErinMihalkova/calmipet.git
-   cd calmipet
-   ```
-
-2. **Set up virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install django djangorestframework django-cors-headers
-   ```
-
-4. **Run migrations**
-   ```bash
-   cd backend
-   python manage.py migrate
-   ```
-
-5. **Create superuser**
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-6. **Start development server**
-   ```bash
-   python manage.py runserver
-   ```
-
-## 📚 API Documentation
-
-### Authentication
-All API endpoints require authentication. Use Django's built-in authentication or implement token-based authentication as needed.
-
-### Data Format
-All API responses are in JSON format. Example reading data:
-```json
-{
-  "id": 1,
-  "user": 1,
-  "ts": "2024-12-01T10:30:00Z",
-  "hr_bpm": 85,
-  "hrv_rmssd": 45.2
-}
+### Backend Setup
+```bash
+cd backend
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver 127.0.0.1:8000
 ```
 
-## 🎯 Future Roadmap
+### Frontend Setup
+```bash
+cd frontend
+npm install
+npm start
+```
 
-### Short-term Goals
-- [ ] Frontend dashboard development
-- [ ] Real-time data visualization
-- [ ] Mobile app API optimization
-- [ ] Data export functionality
+The frontend will be available at `http://localhost:3001`
 
-### Medium-term Goals
-- [ ] Advanced analytics and insights
-- [ ] Machine learning for health pattern detection
-- [ ] Multi-user family support
-- [ ] Healthcare provider integration
+### Environment Configuration
+Create a `.env` file in the backend directory:
+```
+SECRET_KEY=your-secret-key
+DEBUG=True
+DATABASE_URL=postgresql://user:password@localhost:5432/calmipet
+CORS_ALLOWED_ORIGINS=http://localhost:3001
+```
 
-### Long-term Vision
-- [ ] IoT wearable device integration
-- [ ] Community features for wellness support
-- [ ] Healthcare professional tools
-- [ ] Health trend predictions
-- [ ] Gamified wellness challenges with pet themes
+## 📊 Machine Learning
+
+The application includes sophisticated ML models for stress prediction:
+
+- **Baseline Comparison**: Compares current readings to user's historical baseline
+- **Rule-based Classification**: Traditional algorithmic approaches
+- **Advanced Models**: Scikit-learn integration for complex pattern recognition
+- **Continuous Learning**: Models improve with more user data
+
+## 🔒 Security Features
+
+- **JWT Authentication**: Secure token-based authentication
+- **CORS Configuration**: Proper cross-origin resource sharing setup
+- **Input Validation**: Comprehensive data validation on all endpoints
+- **Rate Limiting**: API protection against abuse
+- **Data Encryption**: Sensitive data encryption in transit and at rest
+
+## 📱 Pet System
+
+Users can choose from four adorable companions:
+
+1. **Raccoon 🦝** - The default curious companion
+2. **Cat 🐱** - Calm and independent
+3. **Fox 🦊** - Clever and adaptive
+4. **Owl 🦉** - Wise and observant
+
+Each pet has unique animations and responds differently to stress levels, providing a personalized experience.
+
+## 🎯 Achievement System
+
+Users earn achievements for:
+- Completing breathing exercises
+- Maintaining low stress levels
+- Consistent daily usage
+- Reaching wellness milestones
+- Sharing progress with friends
+
+## 📈 Data Visualization
+
+- **Stress Trend Charts**: Line graphs showing stress levels over time
+- **Achievement Progress**: Visual progress bars for unlocked achievements
+- **Session History**: Detailed logs of breathing exercises and readings
+- **Export Options**: Data export in CSV, JSON, and PDF formats
+
+## 🧪 Testing
+
+The project includes comprehensive testing:
+- **Unit Tests**: Backend API endpoint testing
+- **Integration Tests**: Frontend-backend integration testing
+- **ML Model Validation**: Stress prediction accuracy testing
+- **Performance Tests**: Load testing for concurrent users
+
+## 📝 Documentation
+
+Detailed documentation is available in the `docs_phase1/` directory:
+- Architecture diagrams
+- API specifications
+- User flow diagrams
+- ML experiment reports
+- Sprint planning and retrospectives
 
 ## 🤝 Contributing
 
-This project is in active development. Contributions are welcome! Please:
-
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-This project is currently private and not licensed for public use.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 📞 Contact
+## 🙏 Acknowledgments
 
-For questions or collaboration opportunities, please reach out through the GitHub repository.
+- Built with love for mental wellness and stress management
+- Inspired by the need for accessible mental health tools
+- Powered by modern web technologies and machine learning
+- Designed with user experience and accessibility in mind
 
 ---
 
-**CalmiPet** - Making human wellness monitoring friendly and approachable through pet-inspired design! 🐕🐱💗
+**CalmIPet** - Your personal wellness companion for a calmer, healthier life. 🌈✨

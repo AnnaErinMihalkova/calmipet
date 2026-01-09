@@ -219,6 +219,27 @@ function App() {
             <div className="form-group"><label>Age</label><input value={info?.age ?? ''} onChange={(e) => setInfo({ ...(info||{}), age: e.target.value })} /></div>
             <div className="form-group"><label>Gender</label><select value={info?.gender ?? ''} onChange={(e) => setInfo({ ...(info||{}), gender: e.target.value })}><option value="male">Male</option><option value="female">Female</option><option value="prefer_not_to_say">Prefer not to say</option></select></div>
             <div className="form-group"><label>Baseline HR</label><input value={info?.baselineHr ?? ''} onChange={(e) => setInfo({ ...(info||{}), baselineHr: e.target.value })} /></div>
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Choose Your Animal</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                {['raccoon','cat','fox','owl'].map((key) => (
+                  <button
+                    key={key}
+                    className="ghost-cta"
+                    style={{
+                      padding: 12,
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 12,
+                      background: (info?.petAnimal || 'raccoon') === key ? 'rgba(124,58,237,0.12)' : 'var(--bg-secondary)'
+                    }}
+                    onClick={() => setInfo({ ...(info||{}), petAnimal: key })}
+                  >
+                    <div style={{ fontSize: 28 }}>{key === 'raccoon' ? '🦝' : key === 'cat' ? '🐱' : key === 'fox' ? '🦊' : '🦉'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{key}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div style={{ marginTop: 8 }}><button className="primary-cta" onClick={saveInfo}>Save Info</button></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
