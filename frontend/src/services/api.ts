@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_BASE_URL = 'http://127.0.0.1:8000/api/';
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || '/api/');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -111,3 +110,43 @@ export const wellnessService = {
 };
 
 export default api;
+
+// Minimal FastAPI integration (independent of Django backend)
+export const fastapiService = {
+  sendData: async (payload: { heart_rate: number; spo2: number; stress_level?: number }): Promise<any> => {
+    const res = await axios.post('http://127.0.0.1:8000/data', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.data;
+  },
+  analyze: async (payload: { heart_rate: number; spo2?: number }): Promise<{ score: number; label: string; baseline_hr: number }> => {
+    const res = await axios.post('http://127.0.0.1:8000/analyze', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.data;
+  },
+  getData: async (): Promise<any[]> => {
+    const res = await axios.get('http://127.0.0.1:8000/data');
+    return res.data;
+  },
+};
+
+const FASTAPI_MODE_KEY = 'backend_mode';
+export const backendMode = {
+  get: (): 'django' | 'fastapi' => {
+    try {
+      const v = localStorage.getItem(FASTAPI_MODE_KEY);
+      return v === 'fastapi' ? 'fastapi' : 'django';
+    } catch {
+      return 'django';
+    }
+  },
+  set: (mode: 'django' | 'fastapi') => {
+    try {
+      localStorage.setItem(FASTAPI_MODE_KEY, mode);
+    } catch {}
+  },
+  isFastApi: (): boolean => {
+    return backendMode.get() === 'fastapi';
+  },
+};

@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000/api');
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || '/api');
 
 const authApi = axios.create({
   baseURL: API_BASE_URL,
@@ -68,7 +67,12 @@ export const authService = {
 
   logout: async (): Promise<void> => {
     try { await authApi.post('/auth/logout/'); } catch {}
-    try { localStorage.removeItem('accessToken'); localStorage.removeItem('refreshToken'); } catch {}
+    try { 
+      localStorage.removeItem('accessToken'); 
+      localStorage.removeItem('refreshToken'); 
+      localStorage.removeItem('hb_user'); 
+      localStorage.removeItem('hb_user_info'); 
+    } catch {}
   },
 
   updateAccount: async (data: Partial<User>): Promise<User> => {
