@@ -3,8 +3,23 @@
  * Simulates a wearable bracelet generating heart rate (HR) and optional HRV data
  */
 
-import { readingService, CreateExternalReading } from './api';
+import { readingService, CreateExternalReading, fastapiService, backendMode } from './api';
 import { authService } from './auth';
+const SIM_MODE_KEY = 'simulator_mode';
+export const simulatorMode = {
+  get: (): 'fastapi_only' | 'toggle_backend' => {
+    try {
+      const v = localStorage.getItem(SIM_MODE_KEY);
+      return v === 'fastapi_only' ? 'fastapi_only' : 'toggle_backend';
+    } catch {
+      return 'toggle_backend';
+    }
+  },
+  set: (mode: 'fastapi_only' | 'toggle_backend') => {
+    try { localStorage.setItem(SIM_MODE_KEY, mode); } catch {}
+  },
+  isFastApiOnly: (): boolean => simulatorMode.get() === 'fastapi_only',
+};
 
 export interface BraceletReading {
   hr: number; // Heart rate in BPM
@@ -203,24 +218,28 @@ export function startAutoSendLoop(
     logReading(reading);
     
     try {
-      if (!cachedUserId) {
-        cachedUserId = getUserIdSync();
-      }
-      if (!cachedUserId) {
-        const u = await authService.me().catch(() => null);
-        if (u && (u as any).username) {
-          cachedUserId = String((u as any).username);
-          try { localStorage.setItem('hb_user', JSON.stringify(u)); } catch {}
+      if (simulatorMode.isFastApiOnly() || backendMode.isFastApi()) {
+        await fastapiService.sendData({ heart_rate: reading.hr, spo2: 98 });
+      } else {
+        if (!cachedUserId) {
+          cachedUserId = getUserIdSync();
         }
+        if (!cachedUserId) {
+          const u = await authService.me().catch(() => null);
+          if (u && (u as any).username) {
+            cachedUserId = String((u as any).username);
+            try { localStorage.setItem('hb_user', JSON.stringify(u)); } catch {}
+          }
+        }
+        if (!cachedUserId) throw new Error('Missing userId');
+        const apiReading: CreateExternalReading = {
+          userId: cachedUserId,
+          hr: reading.hr,
+          hrv: reading.hrv,
+          timestamp: reading.ts,
+        };
+        await readingService.createReadingExternal(apiReading);
       }
-      if (!cachedUserId) throw new Error('Missing userId');
-      const apiReading: CreateExternalReading = {
-        userId: cachedUserId,
-        hr: reading.hr,
-        hrv: reading.hrv,
-        timestamp: reading.ts,
-      };
-      await readingService.createReadingExternal(apiReading);
       console.log(`[Backend] Successfully sent reading to API (HR: ${reading.hr} BPM${reading.hrv !== undefined ? `, HRV: ${reading.hrv}` : ''})`);
       consecutiveFailures = 0
       

@@ -4,15 +4,16 @@ import './RoamingPet.css';
 const RoamingPet: React.FC = () => {
   const [animationClass, setAnimationClass] = useState('');
   const [isVisible, setIsVisible] = useState(false);
-  const [petEmoji, setPetEmoji] = useState('🦝');
+  const [petEmoji, setPetEmoji] = useState('https://twemoji.maxcdn.com/v/latest/svg/1f99d.svg');
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem('hb_user_info');
       const info = raw ? JSON.parse(raw) : {};
-      const map: Record<string, string> = { raccoon: '🦝', cat: '🐱', fox: '🦊', owl: '🦉' };
+      const map: Record<string, string> = { raccoon: '1f99d', cat: '1f431', fox: '1f98a', owl: '1f989' };
       const sel = info?.petAnimal || 'raccoon';
-      setPetEmoji(map[sel] || '🦝');
+      const cp = map[sel] || '1f99d';
+      setPetEmoji(`https://twemoji.maxcdn.com/v/latest/svg/${cp}.svg`);
     } catch {}
     // Randomly trigger animations
     const triggerAnimation = () => {
@@ -52,7 +53,7 @@ const RoamingPet: React.FC = () => {
 
   return (
     <div className={`roaming-pet-container ${animationClass}`}>
-      <div className="pet-emoji">{petEmoji}</div>
+      <img className="pet-emoji" src={petEmoji} alt="pet" style={{ width: 60, height: 60 }} />
       {animationClass === 'peek-bottom' && (
         <div className="speech-bubble">Remember to breathe!</div>
       )}

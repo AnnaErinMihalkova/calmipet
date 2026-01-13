@@ -5,8 +5,13 @@ const service_1 = require("./service");
 const index = async (req, res, next) => {
     try {
         const userId = Number(req.userId);
-        const items = await (0, service_1.listReadings)(userId);
-        res.status(200).json(items);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        // Validate page and limit
+        const validPage = Math.max(1, page);
+        const validLimit = Math.max(1, Math.min(100, limit)); // Cap limit at 100
+        const result = await (0, service_1.findPaginated)(userId, validPage, validLimit);
+        res.status(200).json(result);
     }
     catch (err) {
         next(err);

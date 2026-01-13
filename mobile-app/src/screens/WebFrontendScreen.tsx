@@ -9,6 +9,24 @@ export default function WebFrontendScreen({ route }: { route?: string }) {
   const uri = React.useMemo(() => {
     return route ? `${WEB_URL}${WEB_URL.endsWith('/') ? '' : '/'}#${route}` : WEB_URL
   }, [route])
+  const preInject = React.useMemo(() => {
+    return `
+      try {
+        (function(){
+          var css = [
+            'html, body { background: #0a0a0a !important; overscroll-behavior: none; min-height: 100vh; overflow: auto !important; -webkit-overflow-scrolling: touch; touch-action: pan-y; }',
+            '.App { overflow: auto !important; }',
+            '.login-container { overflow: auto !important; }',
+            '.content { overflow: visible !important; }'
+          ].join('\\n');
+          var s = document.createElement('style'); s.innerHTML = css; document.head.appendChild(s);
+          document.documentElement.style.backgroundColor = '#0a0a0a';
+          document.body.style.backgroundColor = '#0a0a0a';
+        })();
+      } catch(e) {}
+      true;
+    `
+  }, [])
   const [inject, setInject] = React.useState<string>('')
   React.useEffect(() => {
     const load = async () => {
@@ -20,6 +38,12 @@ export default function WebFrontendScreen({ route }: { route?: string }) {
             ${info ? `localStorage.setItem('hb_user_info', '${info.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}');` : ''}
             ${access ? `localStorage.setItem('accessToken', '${access}');` : ''}
             ${refresh ? `localStorage.setItem('refreshToken', '${refresh}');` : ''}
+            (function(){
+              var css = 'html, body { background: #0a0a0a !important; overscroll-behavior: none; min-height: 100vh; overflow: auto !important; touch-action: pan-y; }';
+              var s = document.createElement('style'); s.innerHTML = css; document.head.appendChild(s);
+              document.documentElement.style.backgroundColor = '#0a0a0a';
+              document.body.style.backgroundColor = '#0a0a0a';
+            })();
           } catch(e) {}
           true;
         `
@@ -32,10 +56,17 @@ export default function WebFrontendScreen({ route }: { route?: string }) {
     <View style={styles.container}>
       <WebView 
         source={{ uri }}
+        injectedJavaScriptBeforeContentLoaded={preInject}
         injectedJavaScript={inject}
         onLoadEnd={() => setLoading(false)}
         startInLoadingState
         style={styles.webview}
+        bounces={true}
+        overScrollMode="always"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={true}
+        showsHorizontalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
       />
       {loading && (
         <View style={styles.loaderOverlay}>
@@ -47,8 +78,8 @@ export default function WebFrontendScreen({ route }: { route?: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  webview: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  webview: { flex: 1, backgroundColor: '#0a0a0a' },
   loaderOverlay: { 
     position: 'absolute', 
     top: 0, left: 0, right: 0, bottom: 0, 

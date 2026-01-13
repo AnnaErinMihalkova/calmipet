@@ -5,8 +5,9 @@ import TrendChart from './TrendChart';
 import PetCard from './PetCard';
 import BreathingCoach from './BreathingCoach';
 import CircularLogo from './CircularLogo';
-import RoamingPet from './RoamingPet';
 import { startAutoSendLoop } from '../services/bracelet-simulator';
+import { fastapiService, backendMode } from '../services/api';
+import { simulatorMode } from '../services/bracelet-simulator';
 
 const Dashboard: React.FC = () => {
   const [readings, setReadings] = React.useState<Reading[]>([]);
@@ -61,15 +62,66 @@ const Dashboard: React.FC = () => {
 
   const addTestReading = async () => {
     try {
-      const created = await readingService.createReading({
-        hr_bpm: Math.floor(Math.random() * 40) + 60,
-        hrv_rmssd: Math.floor(Math.random() * 50) + 20,
-      });
-      setReadings((r) => [...r, created]);
+      const logMode = (localStorage.getItem('log_mode') === 'fastapi_only');
+      if (backendMode.isFastApi() || logMode) {
+        await fastapiService.sendData({
+          heart_rate: Math.floor(Math.random() * 40) + 60,
+          spo2: Math.floor(95 + Math.random() * 5),
+        });
+      }
+      if (!logMode) {
+        const created = await readingService.createReading({
+          hr_bpm: Math.floor(Math.random() * 40) + 60,
+          hrv_rmssd: Math.floor(Math.random() * 50) + 20,
+        });
+        setReadings((r) => [...r, created]);
+      }
     } catch (e) {
       setError('Failed to create reading');
     }
   };
+
+  const [analysis, setAnalysis] = React.useState<{ score: number; label: string; baseline_hr: number } | null>(null);
+  const runAnalysis = async () => {
+    if (!heartRate) {
+      setError('No heart rate available for analysis');
+      return;
+    }
+    try {
+      const result = await fastapiService.analyze({ heart_rate: heartRate, spo2: Math.floor(95 + Math.random() * 5) });
+      setAnalysis(result);
+      setError(null);
+    } catch {
+      setError('Failed to analyze');
+    }
+  };
+  const [mode, setMode] = React.useState<'django' | 'fastapi'>(backendMode.get());
+  const toggleMode = () => {
+    const next = mode === 'fastapi' ? 'django' : 'fastapi';
+    backendMode.set(next);
+    setMode(next);
+  };
+  const [simMode, setSimMode] = React.useState<'fastapi_only' | 'toggle_backend'>(simulatorMode.get());
+  const toggleSimMode = () => {
+    const next = simMode === 'fastapi_only' ? 'toggle_backend' : 'fastapi_only';
+    simulatorMode.set(next);
+    setSimMode(next);
+  };
+  const [fastapiReadings, setFastapiReadings] = React.useState<Reading[]>([]);
+  const loadFastApiData = async () => {
+    try {
+      const rows = await fastapiService.getData();
+      const mapped = rows.map((row: any[]) => ({ hr_bpm: Number(row[1]) } as Reading));
+      setFastapiReadings(mapped);
+    } catch {
+      setError('Failed to load FastAPI data');
+    }
+  };
+  React.useEffect(() => {
+    const id = setInterval(() => { loadFastApiData(); }, 8000);
+    loadFastApiData();
+    return () => clearInterval(id);
+  }, []);
 
   const last = readings[readings.length - 1];
   const heartRate = last?.hr_bpm ?? null;
@@ -79,7 +131,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="content" style={{ padding: 20 }}>
-      <RoamingPet />
       <div style={{
         background: 'var(--bg-secondary)',
         border: '1px solid var(--border-color)',
@@ -135,18 +186,33 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
         <button className="primary-cta" onClick={() => setCoachOpen(true)}>Start Breathing</button>
         <button className="ghost-cta" onClick={addTestReading}>Log Mood</button>
+        <button className="ghost-cta" onClick={runAnalysis}>Analyze</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <PetCard />
-        <TrendChart readings={readings} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+        <div role="button" onClick={() => { window.location.hash = 'readings'; }} style={{ cursor: 'pointer' }}>
+          <PetCard />
+        </div>
+        <TrendChart readings={readings} smooth={true} window={5} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, marginTop: 12 }}>
+        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 16 }}>
+          <div style={{ marginBottom: 8, fontWeight: 700 }}>FastAPI Stream</div>
+          <TrendChart readings={fastapiReadings} smooth={true} window={5} />
+        </div>
       </div>
 
       <div style={{ marginTop: 16 }}>
-        {loading ? 'Loading readings…' : error ? error : ''}
+        {loading
+          ? 'Loading readings…'
+          : error
+          ? error
+          : analysis
+          ? `Analysis: ${analysis.label.toUpperCase()} (score ${analysis.score}, baseline ${analysis.baseline_hr})`
+          : 'Ready to log new readings.'}
       </div>
 
       <BreathingCoach open={coachOpen} onClose={() => setCoachOpen(false)} onCompleted={() => fetchReadings()} />

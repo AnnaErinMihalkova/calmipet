@@ -112,21 +112,23 @@ export const wellnessService = {
 export default api;
 
 // Minimal FastAPI integration (independent of Django backend)
+const FASTAPI_HOST = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+const FASTAPI_BASE = `http://${FASTAPI_HOST}:8000`;
 export const fastapiService = {
   sendData: async (payload: { heart_rate: number; spo2: number; stress_level?: number }): Promise<any> => {
-    const res = await axios.post('http://127.0.0.1:8000/data', payload, {
+    const res = await axios.post(`${FASTAPI_BASE}/data`, payload, {
       headers: { 'Content-Type': 'application/json' },
     });
     return res.data;
   },
   analyze: async (payload: { heart_rate: number; spo2?: number }): Promise<{ score: number; label: string; baseline_hr: number }> => {
-    const res = await axios.post('http://127.0.0.1:8000/analyze', payload, {
+    const res = await axios.post(`${FASTAPI_BASE}/analyze`, payload, {
       headers: { 'Content-Type': 'application/json' },
     });
     return res.data;
   },
   getData: async (): Promise<any[]> => {
-    const res = await axios.get('http://127.0.0.1:8000/data');
+    const res = await axios.get(`${FASTAPI_BASE}/data`);
     return res.data;
   },
 };

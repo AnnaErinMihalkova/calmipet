@@ -26,6 +26,8 @@ function App() {
   React.useEffect(() => {
     const check = async () => {
       try {
+        const token = localStorage.getItem('accessToken') || '';
+        if (!token) return;
         const { authService } = require('./services/auth');
         await authService.me();
         setCurrentPage('dashboard');
@@ -50,18 +52,59 @@ function App() {
   const goProgress = () => setCurrentPage('progress');
   const goAccount = () => setCurrentPage('account');
 
-  const IconBtn: React.FC<{ onClick: () => void; path: string }> = ({ onClick, path }) => (
-    <button className="ghost-cta" onClick={onClick} aria-label="nav" style={{ padding: 10 }}>
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d={path} stroke="var(--text-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  const IconBtn: React.FC<{ onClick: () => void; emoji: string; label: string; active: boolean }> = ({
+    onClick,
+    emoji,
+    label,
+    active,
+  }) => (
+    <button
+      className="ghost-cta"
+      onClick={onClick}
+      aria-label={label}
+      style={{
+        padding: 8,
+        borderRadius: 12,
+        border: 'none',
+        background: 'transparent',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        <span style={{ fontSize: 20 }}>{emoji}</span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+          }}
+        >
+          {label}
+        </span>
+      </div>
     </button>
   );
 
   const BottomNav: React.FC = () => (
-    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, padding: 12, background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-color)' }}>
-      <IconBtn onClick={goAccount} path="M12 12a5 5 0 1 0 0-10a5 5 0 0 0 0 10zm-7 9a7 7 0 1 1 14 0H5z" />
-      <IconBtn onClick={goDashboard} path="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7z" />
-      <IconBtn onClick={goReadings} path="M4 19h16M4 12h16M4 5h16" />
-      <IconBtn onClick={goProgress} path="M3 17l5-5 4 4 8-8" />
+    <div
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 8,
+        padding: 12,
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+        background: 'var(--bg-secondary)',
+        borderTop: '1px solid var(--border-color)',
+        zIndex: 1000,
+      }}
+    >
+      <IconBtn onClick={goDashboard} emoji="🏠" label="Home" active={currentPage === 'dashboard' || currentPage === 'home'} />
+      <IconBtn onClick={goReadings} emoji="📊" label="Readings" active={currentPage === 'readings'} />
+      <IconBtn onClick={goProgress} emoji="🌱" label="Progress" active={currentPage === 'progress'} />
+      <IconBtn onClick={goAccount} emoji="👤" label="Account" active={currentPage === 'account'} />
     </div>
   );
 
@@ -113,7 +156,7 @@ function App() {
     const ReadingList = require('./components/ReadingList').default;
     return (
       <ThemeProvider>
-        <div className="App">
+        <div className="App" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
           <ThemeToggle />
           <ReadingList />
           <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goAccount} role="button">
@@ -128,7 +171,7 @@ function App() {
   if (currentPage === 'dashboard') {
     return (
       <ThemeProvider>
-        <div className="App">
+        <div className="App" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
           <ThemeToggle />
           <Dashboard />
           <BottomNav />
@@ -176,7 +219,7 @@ function App() {
 
     return (
       <ThemeProvider>
-        <div className="App">
+        <div className="App" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
           <ThemeToggle />
           <ProgressView />
           <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goAccount} role="button">Account</div>
@@ -251,7 +294,7 @@ function App() {
     };
     return (
       <ThemeProvider>
-        <div className="App">
+        <div className="App" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
           <ThemeToggle />
           <AccountView />
           <BottomNav />
@@ -283,7 +326,7 @@ function App() {
               return (
                 <>
                   <div className="onboarding-visual">
-                    <div className="pet" style={{ animation: 'float 3s ease-in-out infinite' }}>
+                    <div className="pet">
                       <div style={{ fontSize: 90 }}>{s.animal}</div>
                     </div>
                   </div>
