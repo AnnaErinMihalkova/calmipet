@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { readingsApi, wellnessApi } from '../api/client'
 import HRLineChart from '../components/HRLineChart'
@@ -83,6 +83,24 @@ export default function HomeScreen({
   const hrv = lastReading?.hrv ?? null
   const stressLabel = hrv == null ? 'Unknown' : hrv < 30 ? 'High' : hrv < 50 ? 'Medium' : 'Low'
   const coherenceLabel = hrv == null ? 'Unknown' : hrv >= 60 ? 'High' : hrv >= 40 ? 'Medium' : 'Low'
+  
+  const showDailySummary = () => {
+    const now = new Date()
+    const start = new Date(now); start.setHours(0,0,0,0)
+    const end = new Date(now); end.setHours(23,59,59,999)
+    const todays = readings.filter(r => {
+      const d = new Date(r.createdAt)
+      return d >= start && d <= end
+    })
+    const count = todays.length
+    const avg = count ? Math.round(todays.reduce((s, r) => s + (r.hr || 0), 0) / count) : null
+    const min = count ? Math.min(...todays.map(r => r.hr || 0)) : null
+    const max = count ? Math.max(...todays.map(r => r.hr || 0)) : null
+    const avgHrv = count ? (todays.reduce((s, r) => s + (r.hrv || 0), 0) / count) : null
+    const mood = avgHrv == null ? 'Unknown' : avgHrv < 30 ? 'High' : avgHrv < 50 ? 'Medium' : 'Low'
+    const msg = `Readings: ${count}\nAvg BPM: ${avg ?? '--'}\nMin/Max: ${min ?? '--'}/${max ?? '--'}\nDay Mood: ${mood}`
+    Alert.alert('Today’s Summary', msg)
+  }
 
   if (loading && !refreshing) {
     return (
@@ -128,11 +146,15 @@ export default function HomeScreen({
            </View>
            <View style={styles.petContainer}>
               <Text style={styles.petEmoji}>
-                {petEmoji}
+                {petEmoji}{stressLabel === 'High' ? ' 😫' : ''}
               </Text>
               <View style={styles.petStatusContainer}>
-                <Text style={styles.petStatusTitle}>Calm & Happy</Text>
-                <Text style={styles.petStatusDesc}>Your biofeedback is keeping your companion healthy.</Text>
+                <Text style={[styles.petStatusTitle, stressLabel === 'High' ? { color: '#E74C3C' } : null]}>
+                  {stressLabel === 'High' ? 'Stressed' : stressLabel === 'Medium' ? 'Focused' : 'Calm & Happy'}
+                </Text>
+                <Text style={styles.petStatusDesc}>
+                  {stressLabel === 'High' ? 'Let’s take a calming breath.' : 'Your biofeedback is keeping your companion healthy.'}
+                </Text>
               </View>
            </View>
         </View>
@@ -178,7 +200,9 @@ export default function HomeScreen({
         {readings.length > 0 && (
           <View style={styles.chartSection}>
             <Text style={styles.sectionTitle}>Heart Rate Trend</Text>
-            <HRLineChart limit={10} />
+            <TouchableOpacity onPress={showDailySummary} activeOpacity={0.8}>
+              <HRLineChart limit={10} />
+            </TouchableOpacity>
           </View>
         )}
 
