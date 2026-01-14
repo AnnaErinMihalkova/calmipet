@@ -93,7 +93,13 @@ const ReadingList: React.FC = () => {
             <div key={reading.id} className="reading-card">
               <p className="reading-item"><strong>Date:</strong> {reading.ts ? new Date(reading.ts).toLocaleString() : 'N/A'}</p>
               <p className="reading-item"><strong>Heart Rate:</strong> {reading.hr_bpm} BPM</p>
-              <p className="reading-item"><strong>HRV:</strong> {reading.hrv_rmssd} ms</p>
+              <p className="reading-item"><strong>HRV/Stress:</strong> {reading.hrv_rmssd < 1 ? (reading.hrv_rmssd * 100).toFixed(0) + '%' : reading.hrv_rmssd.toFixed(1)}</p>
+              <p className="reading-item"><strong>Mood:</strong> {
+                reading.hrv_rmssd < 0.3 ? '😌 Calm' :
+                reading.hrv_rmssd < 0.6 ? '😐 Focused' :
+                reading.hrv_rmssd < 1.0 ? '😫 Stressed' :
+                reading.hrv_rmssd > 50 ? '😌 Calm (High HRV)' : '😐 Balanced'
+              }</p>
             </div>
           ))}
         </div>

@@ -109,6 +109,21 @@ def create_reading(payload: Dict[str, Any]):
     conn.close()
     return {"message": "Data saved", "id": 0, "hr_bpm": hr, "hrv_rmssd": stress, "ts": "now", "user": 1}
 
+@router.post("/bracelet/readings/")
+def create_reading_external(payload: Dict[str, Any]):
+    """Bracelet simulator endpoint"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    hr = payload.get("hr", 0)
+    hrv = payload.get("hrv", 0.0)
+    cursor.execute(
+        "INSERT INTO sensor_data (heart_rate, spo2, stress_level) VALUES (?, ?, ?)",
+        (hr, 98, hrv)
+    )
+    conn.commit()
+    conn.close()
+    return {"message": "Data saved", "id": 0, "hr_bpm": hr, "hrv_rmssd": hrv, "ts": "now", "user": 1}
+
 @router.get("/pets/mine/")
 def get_pet():
     return {"mood": "calm", "level": 1}
@@ -116,3 +131,22 @@ def get_pet():
 @router.get("/streaks/mine/")
 def get_streak():
     return {"current_streak": 5, "max_streak": 10}
+
+@router.post("/breathing-sessions/")
+def create_breathing_session():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO breathing_sessions (duration_seconds) VALUES (60)")
+    session_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return {"id": session_id, "started_at": "now", "completed": False}
+
+@router.post("/breathing-sessions/{id}/complete/")
+def complete_breathing_session(id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE breathing_sessions SET completed = 1, completed_at = CURRENT_TIMESTAMP WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return {"id": id, "completed": True}

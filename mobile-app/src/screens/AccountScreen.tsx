@@ -151,10 +151,14 @@ export default function AccountScreen() {
 
         <Text style={styles.subTitle}>Choose Your Companion</Text>
         <View style={styles.animalGrid}>
-          {animals.map(a => (
+          {animals.map((a, i) => (
             <TouchableOpacity 
               key={a.key}
-              style={[styles.animalBtn, info.petAnimal === a.key && styles.animalBtnActive]}
+              style={[
+                styles.animalBtn, 
+                i % 2 === 0 ? { marginRight: 8 } : {},
+                info.petAnimal === a.key && styles.animalBtnActive
+              ]}
               onPress={() => setInfo({...info, petAnimal: a.key})}
             >
               <Text style={styles.animalEmoji}>{a.emoji}</Text>
@@ -286,17 +290,18 @@ const styles = StyleSheet.create({
   animalGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   animalBtn: {
-    flexBasis: '48%',
+    width: '48%',
     padding: 12,
     borderWidth: 1,
     borderColor: '#ECF0F1',
     borderRadius: 12,
     alignItems: 'center',
     backgroundColor: 'transparent',
+    marginBottom: 12,
   },
   animalBtnActive: {
     backgroundColor: 'rgba(52, 152, 219, 0.10)',

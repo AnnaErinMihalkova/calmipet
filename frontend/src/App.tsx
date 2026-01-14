@@ -264,7 +264,7 @@ function App() {
             <div className="form-group"><label>Baseline HR</label><input value={info?.baselineHr ?? ''} onChange={(e) => setInfo({ ...(info||{}), baselineHr: e.target.value })} /></div>
             <div style={{ marginTop: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 6 }}>Choose Your Animal</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: 8 }}>
                 {['raccoon','cat','fox','owl'].map((key) => (
                   <button
                     key={key}
@@ -273,7 +273,7 @@ function App() {
                       padding: 12,
                       border: '1px solid var(--border-color)',
                       borderRadius: 12,
-                      background: (info?.petAnimal || 'raccoon') === key ? 'rgba(124,58,237,0.12)' : 'var(--bg-secondary)'
+                      background: (info?.petAnimal || 'raccoon') === key ? 'rgba(124,58,237,0.12)' : 'transparent'
                     }}
                     onClick={() => setInfo({ ...(info||{}), petAnimal: key })}
                   >

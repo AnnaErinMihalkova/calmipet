@@ -129,6 +129,23 @@ const Dashboard: React.FC = () => {
   const stressLabel = hrv == null ? 'Unknown' : hrv < 30 ? 'High' : hrv < 50 ? 'Medium' : 'Low';
   const coherenceLabel = hrv == null ? 'Unknown' : hrv >= 60 ? 'High' : hrv >= 40 ? 'Medium' : 'Low';
 
+  const [dailyOpen, setDailyOpen] = React.useState<boolean>(false);
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+  const todayReadings = readings.filter(r => {
+    if (!r.ts) return false;
+    const d = new Date(r.ts);
+    return d >= todayStart && d <= todayEnd;
+  });
+  const dayBpmAvg = todayReadings.length ? Math.round(todayReadings.reduce((s, r) => s + (r.hr_bpm || 0), 0) / todayReadings.length) : null;
+  const dayBpmMin = todayReadings.length ? Math.min(...todayReadings.map(r => r.hr_bpm || 0)) : null;
+  const dayBpmMax = todayReadings.length ? Math.max(...todayReadings.map(r => r.hr_bpm || 0)) : null;
+  const dayMood = (() => {
+    const avgHrv = todayReadings.length ? (todayReadings.reduce((s, r) => s + (r.hrv_rmssd || 0), 0) / todayReadings.length) : null;
+    if (avgHrv == null) return 'Unknown';
+    return avgHrv < 30 ? 'High' : avgHrv < 50 ? 'Medium' : 'Low';
+  })();
+
   return (
     <div className="content" style={{ padding: 20 }}>
       <div style={{
@@ -196,14 +213,40 @@ const Dashboard: React.FC = () => {
         <div role="button" onClick={() => { window.location.hash = 'readings'; }} style={{ cursor: 'pointer' }}>
           <PetCard />
         </div>
-        <TrendChart readings={readings} smooth={true} window={5} />
+        <TrendChart readings={readings} smooth={true} window={5} onClick={() => setDailyOpen(true)} />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, marginTop: 12 }}>
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 16 }}>
-          <div style={{ marginBottom: 8, fontWeight: 700 }}>FastAPI Stream</div>
-          <TrendChart readings={fastapiReadings} smooth={true} window={5} />
+      
+      {dailyOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 3000 }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 20, width: 'min(640px, 92vw)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>Today’s Trend</div>
+              <button className="ghost-cta" onClick={() => setDailyOpen(false)} aria-label="Close">Close</button>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <TrendChart readings={todayReadings.length ? todayReadings : readings} smooth={true} window={5} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginTop: 12 }}>
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 12 }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>Avg BPM</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{dayBpmAvg ?? '--'}</div>
+              </div>
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 12 }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>Min BPM</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{dayBpmMin ?? '--'}</div>
+              </div>
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 12 }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>Max BPM</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{dayBpmMax ?? '--'}</div>
+              </div>
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 12 }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>Day Mood</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{dayMood}</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       <div style={{ marginTop: 16 }}>
         {loading

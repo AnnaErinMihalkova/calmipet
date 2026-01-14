@@ -1,7 +1,7 @@
 import React from 'react';
 import { Reading } from '../services/api';
 
-const TrendChart: React.FC<{ readings: Reading[]; smooth?: boolean; window?: number }> = ({ readings, smooth = false, window = 5 }) => {
+const TrendChart: React.FC<{ readings: Reading[]; smooth?: boolean; window?: number; onClick?: () => void }> = ({ readings, smooth = false, window = 5, onClick }) => {
   const last = readings.slice(-20);
   const rawValues = last.map((r) => r.hr_bpm || 0);
   const values = React.useMemo(() => {
@@ -29,7 +29,9 @@ const TrendChart: React.FC<{ readings: Reading[]; smooth?: boolean; window?: num
         borderRadius: 12,
         maxWidth: '100%',
         overflow: 'hidden',
+        cursor: onClick ? 'pointer' : 'default',
       }}
+      onClick={onClick}
     >
       <div style={{ marginBottom: 8, fontWeight: 600 }}>Trend (BPM)</div>
       <div
