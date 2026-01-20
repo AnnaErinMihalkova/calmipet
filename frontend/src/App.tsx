@@ -5,6 +5,7 @@ import SignUp from './components/SignUp';
 import Login from './components/Login';
 import './App.css';
 import Dashboard from './components/Dashboard';
+import ProgressView from './components/ProgressView';
 
 
 function App() {
@@ -87,10 +88,8 @@ function App() {
   const BottomNav: React.FC = () => (
     <div
       style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
+        flex: '0 0 auto',
+        width: '100%',
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
         gap: 8,
@@ -156,14 +155,14 @@ function App() {
     const ReadingList = require('./components/ReadingList').default;
     return (
       <ThemeProvider>
-        <div className="App" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="App">
           <ThemeToggle />
           <ReadingList />
           <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goAccount} role="button">
             Account
           </div>
-          <BottomNav />
         </div>
+        <BottomNav />
       </ThemeProvider>
     );
   }
@@ -171,60 +170,24 @@ function App() {
   if (currentPage === 'dashboard') {
     return (
       <ThemeProvider>
-        <div className="App" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="App">
           <ThemeToggle />
           <Dashboard />
-          <BottomNav />
         </div>
+        <BottomNav />
       </ThemeProvider>
     );
   }
 
   if (currentPage === 'progress') {
-    const ProgressView: React.FC = () => {
-      const [streak, setStreak] = React.useState<any>(null);
-      React.useEffect(() => {
-        const { wellnessService } = require('./services/api');
-        wellnessService.getStreak().then(setStreak).catch(() => setStreak(null));
-      }, []);
-      return (
-        <div className="content" style={{ paddingBottom: 80 }}>
-          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 18, padding: 20, boxShadow: 'var(--shadow-lg)', marginBottom: 12 }}>
-            <div style={{ fontSize: 24, fontWeight: 800 }}>Streak</div>
-            <div style={{ color: 'var(--text-secondary)' }}>{streak ? `${streak.current_streak} days` : 'Loading…'}</div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <div className="card">
-              <h3>Evolution Progress</h3>
-              <div style={{ height: 10, background: 'var(--border-color)', borderRadius: 6 }}>
-                <div style={{ width: '75%', height: 10, borderRadius: 6, background: 'linear-gradient(90deg, var(--accent-color), var(--accent-hover))' }} />
-              </div>
-              <p style={{ marginTop: 8 }}>Perform more sessions to evolve</p>
-            </div>
-            <div className="card">
-              <h3>Daily Rituals</h3>
-              <ul style={{ paddingLeft: 16, margin: 0 }}>
-                <li>Morning biofeedback ✓</li>
-                <li>Evening reflection •</li>
-              </ul>
-            </div>
-            <div className="card">
-              <h3>Milestones</h3>
-              <p>Early Riser, Zen Master unlocked</p>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
     return (
       <ThemeProvider>
-        <div className="App" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="App">
           <ThemeToggle />
           <ProgressView />
           <div className="ghost-cta" style={{ marginTop: 16, display: 'inline-flex' }} onClick={goAccount} role="button">Account</div>
-          <BottomNav />
         </div>
+        <BottomNav />
       </ThemeProvider>
     );
   }
@@ -294,11 +257,11 @@ function App() {
     };
     return (
       <ThemeProvider>
-        <div className="App" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="App">
           <ThemeToggle />
           <AccountView />
-          <BottomNav />
         </div>
+        <BottomNav />
       </ThemeProvider>
     );
   }

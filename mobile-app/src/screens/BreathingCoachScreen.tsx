@@ -1,5 +1,6 @@
 import React from 'react'
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native'
+import { alertSessionCompleted } from '../services/notifications'
 
 export default function BreathingCoachScreen({ onBack }: { onBack: () => void }) {
   const [secondsLeft, setSecondsLeft] = React.useState(60)
@@ -21,12 +22,13 @@ export default function BreathingCoachScreen({ onBack }: { onBack: () => void })
     Animated.timing(scale, { toValue: running ? targetScale : 1, duration: 900, useNativeDriver: true }).start()
     if (secondsLeft <= 0 && running) {
       setRunning(false)
+      ;(async () => { await alertSessionCompleted() })()
       onBack()
     }
   }, [secondsLeft, running, targetScale, onBack, scale])
 
   const start = () => { setSecondsLeft(60); setRunning(true) }
-  const stop = () => { setRunning(false); onBack() }
+  const stop = () => { setRunning(false); alertSessionCompleted(); onBack() }
 
   return (
     <View style={styles.container}>

@@ -14,8 +14,9 @@ export default function WebFrontendScreen({ route }: { route?: string }) {
       try {
         (function(){
           var css = [
-            'html, body { background: #0a0a0a !important; overscroll-behavior: none; min-height: 100vh; overflow: auto !important; -webkit-overflow-scrolling: touch; touch-action: pan-y; }',
-            '.App { overflow: auto !important; }',
+            'html, body, #root { background: #0a0a0a !important; height: 100% !important; overflow: hidden !important; overscroll-behavior: none; touch-action: pan-y; }',
+            '#root { display: flex; flex-direction: column; }',
+            '.App { flex: 1; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }',
             '.login-container { overflow: auto !important; }',
             '.content { overflow: visible !important; }'
           ].join('\\n');
@@ -39,7 +40,7 @@ export default function WebFrontendScreen({ route }: { route?: string }) {
             ${access ? `localStorage.setItem('accessToken', '${access}');` : ''}
             ${refresh ? `localStorage.setItem('refreshToken', '${refresh}');` : ''}
             (function(){
-              var css = 'html, body { background: #0a0a0a !important; overscroll-behavior: none; min-height: 100vh; overflow: auto !important; touch-action: pan-y; }';
+              var css = 'html, body, #root { background: #0a0a0a !important; height: 100% !important; overflow: hidden !important; overscroll-behavior: none; touch-action: pan-y; } #root { display: flex; flex-direction: column; } .App { flex: 1; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }';
               var s = document.createElement('style'); s.innerHTML = css; document.head.appendChild(s);
               document.documentElement.style.backgroundColor = '#0a0a0a';
               document.body.style.backgroundColor = '#0a0a0a';

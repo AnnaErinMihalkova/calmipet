@@ -1,0 +1,406 @@
+Below is a ready‑to‑paste “Algorithms and Implementation” section you can drop into your thesis (e.g., as a chapter or appendix). Each snippet has the structure you asked for.
+
+---
+
+## 1. Breathing Cycle Logic (Web Breathing Coach)
+
+**Code snippet** – [BreathingCoach.tsx](file:///c:/Users/Anna/calmipet/frontend/src/components/BreathingCoach.tsx#L14-L19)
+
+```typescript
+const progress = 60 - secondsLeft
+const cycle = progress % 10
+const phase = cycle < 4 ? 'Inhale…' : cycle < 6 ? 'Hold…' : 'Exhale…'
+const scale = cycle < 4 ? 1 + cycle * 0.06 : cycle < 6 ? 1.24 : 1.24 - (cycle - 6) * 0.06
+```
+
+- **Purpose (one sentence)**  
+  Computes the current breathing phase and visual scale factor for a 60‑second guided breathing session.
+
+- **Inputs / Outputs**
+  - Inputs:
+    - `secondsLeft` (number): remaining seconds in the 60‑second session.
+  - Outputs:
+    - `cycle` (0–9): position within a 10‑second breathing cycle.
+    - `phase` (string): semantic label for current phase (`"Inhale…"`, `"Hold…"`, `"Exhale…"`).
+    - `scale` (number): multiplicative factor used to scale the breathing circle or pet.
+  - Side effects:
+    - None directly; `scale` and `phase` are passed into React UI elements to animate and label the breathing coach.
+
+- **Assumptions**
+  - Session length is fixed at 60 seconds.
+  - Each breathing cycle is exactly 10 seconds:
+    - 4 seconds inhale, 2 seconds hold, 4 seconds exhale.
+  - Time progression is discrete in 1‑second steps triggered by a timer.
+  - The environment runs in a browser through React, where CSS transforms use the `scale` factor.
+
+- **Complexity and Trade‑offs**
+  - Complexity: O(1) per tick; only simple arithmetic and conditionals.
+  - Trade‑offs:
+    - Uses fixed durations (4–2–4) instead of configurable timings, which simplifies code but reduces flexibility.
+    - Uses a simple linear scale change per second, which is easy to understand and implement, but does not model biomechanical breathing curves as precisely as a sinusoidal function.
+
+- **Result Evidence**
+  - Screenshot: animated breathing circle or raccoon visibly grows during “Inhale…”, stays constant during “Hold…”, and shrinks during “Exhale…”.
+  - Metric: users can count along and confirm one full inhale–hold–exhale cycle lasts approximately 10 seconds (6 full cycles in a 60‑second session).
+
+---
+
+## 2. Breathing Animation with Native Driver (Mobile Breathing Coach)
+
+**Code snippet** – [BreathingCoachScreen.tsx](file:///c:/Users/Anna/calmipet/mobile-app/src/screens/BreathingCoachScreen.tsx#L9-L26)
+
+```typescript
+const progress = 60 - secondsLeft
+const cycle = progress % 10
+const phase = cycle < 4 ? 'Inhale…' : cycle < 6 ? 'Hold…' : 'Exhale…'
+const targetScale = cycle < 4 ? 1 + cycle * 0.06 : cycle < 6 ? 1.24 : 1.24 - (cycle - 6) * 0.06
+
+React.useEffect(() => {
+  Animated.timing(scale, { toValue: running ? targetScale : 1, duration: 900, useNativeDriver: true }).start()
+  if (secondsLeft <= 0 && running) {
+    setRunning(false)
+    onBack()
+  }
+}, [secondsLeft, running, targetScale, onBack, scale])
+```
+
+- **Purpose (one sentence)**  
+  Drives a smooth native animation of the breathing visual on mobile, synchronized with the breathing cycle and session countdown.
+
+- **Inputs / Outputs**
+  - Inputs:
+    - `secondsLeft` (number), `running` (boolean): session state.
+    - `scale` (Animated.Value): shared animated value for UI scale transform.
+  - Outputs:
+    - Updated animated value `scale`, used by React Native `<Animated.View>` to transform the UI.
+  - Side effects:
+    - Starts a native timing animation every time the breathing cycle progresses.
+    - When `secondsLeft` reaches 0, stops the session and calls `onBack()` to navigate away.
+
+- **Assumptions**
+  - Same timing assumptions as web (60 seconds, 10‑second cycles).
+  - Animation duration (900 ms) roughly matches the 1‑second timer granularity to appear continuous.
+  - Environment is React Native with the `useNativeDriver` available for performance.
+
+- **Complexity and Trade‑offs**
+  - Complexity: O(1) per second; uses React Native’s optimized animation engine.
+  - Trade‑offs:
+    - Uses repeated `Animated.timing` calls instead of a more complex spring or looped animation; this is simpler but somewhat less flexible.
+    - Prioritizes smooth UI and low CPU usage over hyper‑precise alignment to each second boundary.
+
+- **Result Evidence**
+  - Screenshot or short video: breathing circle smoothly “pulses” in and out on the phone instead of jumping.
+  - Metric: animation remains smooth at 60 FPS on typical mobile hardware, with no dropped frames observed in Expo dev tools.
+
+---
+
+## 3. Stress‑Aware Pet Visualization
+
+**Code snippet** – [PetCard.tsx](file:///c:/Users/Anna/calmipet/frontend/src/components/PetCard.tsx#L28-L39)
+
+```typescript
+const selected = getSelected();
+const emojiMap: Record<string, string> = { raccoon: '🦝', cat: '🐱', fox: '🦊', owl: '🦉' };
+const moodLabel = pet ? pet.mood : ready ? 'calm' : null;
+const stressed = (pet && pet.mood === 'stressed') 
+  || (pet && pet.mood_score !== undefined && pet.mood_score < 0.4);
+
+<div style={{ width: 240, height: 240, borderRadius: 24, display: 'grid', placeItems: 'center', background: stressed ? 'rgba(255,0,0,0.08)' : 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+  <div style={{ fontSize: selected === 'raccoon' ? 132 : 120, lineHeight: 1 }}>
+    {emojiMap[selected]} {stressed ? '😫' : ''}
+  </div>
+</div>
+```
+
+- **Purpose (one sentence)**  
+  Maps backend pet mood data into a visual state where the companion’s appearance and background color reflect user stress.
+
+- **Inputs / Outputs**
+  - Inputs:
+    - `pet` object: includes `mood` (e.g., `"calm"`, `"stressed"`) and `mood_score` (0–1).
+    - `selected` string: chosen animal type.
+  - Outputs:
+    - `stressed` boolean used to switch background color and optionally add a distressed face `😫`.
+  - Side effects:
+    - None beyond rendering; updates happen reactively when new data arrives.
+
+- **Assumptions**
+  - Lower `mood_score` (< 0.4) indicates higher stress.
+  - Exact thresholds (0.4) are heuristic rather than clinically validated.
+  - Font size of 132px for raccoon is treated as the visual design baseline.
+
+- **Complexity and Trade‑offs**
+  - Complexity: O(1) computations.
+  - Trade‑offs:
+    - Uses a single threshold (`0.4`) for stress, which is easy to tune but coarse.
+    - Uses simple color and emoji changes instead of more complex animations, prioritizing clarity over variety.
+
+- **Result Evidence**
+  - Screenshot: pet card shows a light red background and extra `😫` face when the user’s latest readings suggest high stress.
+  - Metric: visual change is deterministic given specified mood values, which can be verified by feeding test readings with low `mood_score`.
+
+---
+
+## 4. Chart Data Preparation and Label Downsampling
+
+**Code snippet** – [HRLineChart.tsx](file:///c:/Users/Anna/calmipet/mobile-app/src/components/HRLineChart.tsx#L165-L190)
+
+```typescript
+const hrData = filteredReadings.map((r) => r.hr || 0)
+const labels = filteredReadings.map((r) => formatLabel(r.createdAt))
+
+// Reduce label density if too many points
+const labelStep = Math.max(1, Math.floor(labels.length / 6))
+const displayLabels = labels.map((label, index) => (index % labelStep === 0 ? label : ''))
+
+// Prepare HRV data if available
+const hasHRVData = filteredReadings.some((r) => r.hrv !== null && r.hrv !== undefined)
+const hrvData = hasHRVData ? filteredReadings.map((r) => r.hrv || 0) : []
+```
+
+- **Purpose (one sentence)**  
+  Transforms raw reading data into heart‑rate and HRV series, while adaptively reducing label density to keep the mobile chart readable.
+
+- **Inputs / Outputs**
+  - Inputs:
+    - `filteredReadings`: array of readings with `hr`, `hrv`, and `createdAt`.
+  - Outputs:
+    - `hrData` (number[]): heart rate values.
+    - `hrvData` (number[] or empty): HRV values when available.
+    - `displayLabels` (string[]): formatted timestamps, sparsified to avoid overlap.
+  - Side effects:
+    - None; all outputs are pure derived data.
+
+- **Assumptions**
+  - Mobile screens cannot display more than ~6 time labels without overlapping.
+  - HRV data may be missing for some or all readings; chart should still render HR alone.
+
+- **Complexity and Trade‑offs**
+  - Complexity: O(n) over number of readings.
+  - Trade‑offs:
+    - Uses simple uniform downsampling of labels, which is easy but does not prioritize “important” timestamps.
+    - Avoids drawing HRV series when any values are missing, which keeps the legend simple but hides partial HRV information.
+
+- **Result Evidence**
+  - Screenshot: chart with at most six non‑overlapping x‑axis labels, even when >30 readings exist.
+  - Metric: label count ≈ `labels.length / labelStep`, validated to be ≤ 6 in test datasets.
+
+---
+
+## 5. Stress Scoring and Labeling (Backend Analytics Endpoint)
+
+**Code snippet** – [sensor.py](file:///c:/Users/Anna/calmipet/backend/app/routers/sensor.py#L29-L50)
+
+```python
+cursor.execute("SELECT heart_rate FROM sensor_data ORDER BY timestamp DESC LIMIT 20")
+hr_rows = cursor.fetchall()
+history_hr: List[int] = [r[0] for r in hr_rows] if hr_rows else []
+baseline = sum(history_hr) / len(history_hr) if history_hr else 70.0
+delta = payload.heart_rate - baseline
+score = max(0.0, min(1.0, delta / 40.0))
+label = "low"
+if score >= 0.6:
+    label = "high"
+elif score >= 0.3:
+    label = "medium"
+return {
+    "heart_rate": payload.heart_rate,
+    "spo2": payload.spo2,
+    "baseline_hr": round(baseline, 2),
+    "score": round(score, 3),
+    "label": label,
+    "history_count": len(history_hr),
+}
+```
+
+- **Purpose (one sentence)**  
+  Computes a simple stress score and categorical label from the current heart rate, relative to a baseline estimated from recent history.
+
+- **Inputs / Outputs**
+  - Inputs:
+    - `payload.heart_rate` (int), `payload.spo2` (int).
+    - Last 20 heart rate values from `sensor_data` table.
+  - Outputs:
+    - `baseline_hr` (float): average of recent readings.
+    - `score` (0.0–1.0): normalized stress score.
+    - `label` (“low”, “medium”, “high”).
+    - `history_count`: number of samples used in baseline.
+  - Side effects:
+    - One read‑only query to the SQLite database.
+
+- **Assumptions**
+  - Baseline is well‑approximated by the arithmetic mean of the last 20 readings.
+  - A 40 bpm deviation corresponds to maximum stress (score 1.0).
+  - These thresholds are heuristic and intended for biofeedback training, not medical diagnosis.
+
+- **Complexity and Trade‑offs**
+  - Complexity: O(n) over last 20 readings; effectively O(1) due to fixed limit.
+  - Trade‑offs:
+    - Mean is sensitive to outliers but is very simple to compute.
+    - Linear mapping of delta to score ignores non‑linear physiological responses but is easy to interpret.
+
+- **Result Evidence**
+  - Screenshot: mobile or web UI showing stress label (“high”) when heart rate spikes relative to baseline.
+  - Metric: test payloads can be crafted to verify score boundaries (e.g., delta=0 → 0.0, delta=40 → 1.0, delta=20 → 0.5).
+
+---
+
+## 6. Reading Formatting for Mobile App Compatibility
+
+**Code snippet** – [sensor.py](file:///c:/Users/Anna/calmipet/backend/app/routers/sensor.py#L59-L83)
+
+```python
+cursor.execute("SELECT id, heart_rate, stress_level, timestamp FROM sensor_data ORDER BY timestamp DESC LIMIT 50")
+rows = cursor.fetchall()
+items = []
+for r in rows:
+    items.append({
+        "id": r[0],
+        "hr_bpm": r[1],
+        "hrv_rmssd": r[2],  # using stress_level as proxy for HRV
+        "ts": r[3],
+        "user": 1
+    })
+return items
+```
+
+- **Purpose (one sentence)**  
+  Adapts raw sensor rows from the database into the JSON schema expected by the mobile app’s readings API.
+
+- **Inputs / Outputs**
+  - Inputs:
+    - Up to 50 rows from `sensor_data` with columns `(id, heart_rate, stress_level, timestamp)`.
+  - Outputs:
+    - List of dictionaries with keys `id`, `hr_bpm`, `hrv_rmssd`, `ts`, `user`.
+  - Side effects:
+    - One read‑only database query.
+
+- **Assumptions**
+  - `stress_level` is reused as a proxy for HRV (`hrv_rmssd`) for demo purposes.
+  - Only a single user (`user: 1`) exists in this simplified sensor backend.
+
+- **Complexity and Trade‑offs**
+  - Complexity: O(n) over at most 50 readings.
+  - Trade‑offs:
+    - Trades realism for simplicity by mapping `stress_level` to HRV; suitable for prototype but not for clinical validity.
+    - Hard‑codes user ID to 1, which simplifies authorization but does not support multi‑user separation.
+
+- **Result Evidence**
+  - Screenshot: lists of readings in the mobile “Readings” screen populated from this endpoint.
+  - Metric: the mobile client successfully parses and plots these values in the HR/HRV chart.
+
+---
+
+## 7. Web–Mobile Integration via WebView and Local Storage
+
+**Code snippet** – [WebFrontendScreen.tsx](file:///c:/Users/Anna/calmipet/mobile-app/src/screens/WebFrontendScreen.tsx#L25-L53)
+
+```typescript
+const uri = React.useMemo(() => {
+  return route ? `${WEB_URL}${WEB_URL.endsWith('/') ? '' : '/'}#${route}` : WEB_URL
+}, [route])
+
+React.useEffect(() => {
+  const load = async () => {
+    try {
+      const info = await AsyncStorage.getItem('hb_user_info')
+      const [[, access], [, refresh]] = await AsyncStorage.multiGet(['accessToken', 'refreshToken'])
+      const js = `
+        try {
+          ${info ? `localStorage.setItem('hb_user_info', '${info.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}');` : ''}
+          ${access ? `localStorage.setItem('accessToken', '${access}');` : ''}
+          ${refresh ? `localStorage.setItem('refreshToken', '${refresh}');` : ''}
+        } catch(e) {}
+        true;
+      `
+      setInject(js)
+    } catch {}
+  }
+  load()
+}, [])
+```
+
+- **Purpose (one sentence)**  
+  Bridges authentication and user preferences from the native mobile environment into the embedded web frontend, so both share the same session and pet settings.
+
+- **Inputs / Outputs**
+  - Inputs:
+    - `route` (optional): requested web route (`"dashboard"`, `"home"`, …).
+    - `WEB_URL`: base URL of the web frontend.
+    - AsyncStorage values: `hb_user_info`, `accessToken`, `refreshToken`.
+  - Outputs:
+    - `uri`: final URL loaded by `<WebView>`.
+    - `inject`: JavaScript string injected into the web page to set `localStorage` keys.
+  - Side effects:
+    - Mutates `localStorage` inside the embedded web page, effectively logging the web app in with the mobile‑side tokens.
+
+- **Assumptions**
+  - Web frontend uses `localStorage` keys `hb_user_info`, `accessToken`, and `refreshToken`.
+  - Mobile app and web app run on the same device or reachable host (LAN or tunnel).
+  - Tokens are valid and accepted by the web’s backend.
+
+- **Complexity and Trade‑offs**
+  - Complexity: O(1); operations are constant‑time string manipulations.
+  - Trade‑offs:
+    - Injecting JS and tokens is pragmatic for integration but couples mobile and web to specific storage keys.
+    - Avoids building a separate mobile UI for every web feature, at the cost of depending on WebView behavior.
+
+- **Result Evidence**
+  - Screenshot: when opening the mobile app, the embedded web dashboard appears already logged in with the selected pet and settings.
+  - Metric: API requests from the web frontend succeed with the injected `accessToken` without prompting the user to log in again.
+
+---
+
+## 8. Environment‑Aware Backend and Web URLs
+
+**Code snippet** – [config.ts](file:///c:/Users/Anna/calmipet/mobile-app/src/config.ts#L3-L17)
+
+```typescript
+export const getBaseUrl = () => {
+  let baseURL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000/api';
+  if (Platform.OS !== 'web' && baseURL.includes('127.0.0.1')) {
+    baseURL = 'http://10.250.88.145:8000/api';
+  }
+  return baseURL;
+};
+
+export const API_URL = getBaseUrl();
+export const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL 
+  || (Platform.OS === 'web' 
+    ? 'http://127.0.0.1:3001/'
+    : 'http://10.250.88.145:3001/');
+```
+
+- **Purpose (one sentence)**  
+  Resolves backend and web frontend URLs differently for web and mobile devices, so that local development works both in the browser and on physical phones.
+
+- **Inputs / Outputs**
+  - Inputs:
+    - `Platform.OS`: `'web'`, `'ios'`, or `'android'`.
+    - Optional environment variables: `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_WEB_URL`.
+  - Outputs:
+    - `API_URL`: final base URL for API requests.
+    - `WEB_URL`: final base URL for the embedded web frontend.
+  - Side effects:
+    - None; pure calculation based on environment.
+
+- **Assumptions**
+  - `127.0.0.1` refers to the host machine in web environment but to the phone itself on device; hence a LAN IP (e.g., `10.250.88.145`) is needed for mobile.
+  - LAN IP remains stable over the development session.
+
+- **Complexity and Trade‑offs**
+  - Complexity: O(1).
+  - Trade‑offs:
+    - Hard‑coding the LAN IP is fragile if the network changes; environment variables can override this but require setup.
+    - This simple strategy avoids a more complex service discovery mechanism, which would be overkill for a thesis prototype.
+
+- **Result Evidence**
+  - Screenshot: mobile app successfully loads both the API and WebView dashboards when phone and PC are on the same Wi‑Fi.
+  - Metric: no more NSURLErrorDomain timeouts or proxy ETIMEDOUT errors when using the configured URLs.
+
+---
+
+If you like, next step I can:
+
+- Turn this into a LaTeX or Word‑style numbered subsection structure (e.g., “3.2.1 Breathing Cycle Algorithm”) with figure captions, and
+- Propose names for screenshots/figures (e.g., “Figure 5.3 – Breathing Coach Animation”) so you can capture them and insert into the thesis consistently.

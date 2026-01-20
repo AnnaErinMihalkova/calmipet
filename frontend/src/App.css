@@ -1,5 +1,8 @@
 .App {
-  min-height: 100vh;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
   background: radial-gradient(120% 120% at 10% 20%, rgba(124, 58, 237, 0.2), transparent),
     radial-gradient(120% 120% at 90% 10%, rgba(167, 139, 250, 0.18), transparent),
     var(--bg-primary);

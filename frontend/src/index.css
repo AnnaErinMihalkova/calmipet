@@ -48,8 +48,8 @@
   --success-color: #059669;
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
-  
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+
   /* Logo colors for light theme */
   --logo-bg: #ffffff;
   --logo-border: #7c3aed;
@@ -59,9 +59,21 @@
   --logo-mirror-bg: #7c3aed;
   --logo-eyes: #ffffff;
   --logo-eyes-pupil: #7c3aed;
-  --logo-nose: #ffffff;
+  --logo-nose: #1a1a1a;
   --logo-text: #4a4a4a;
-  --logo-shadow: rgba(124, 58, 237, 0.3);
+  --logo-shadow: rgba(124, 58, 237, 0.2);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
 }
 
 body {
@@ -74,53 +86,9 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
-  overscroll-behavior: none;
-  overflow: auto;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
-}
-
-input, textarea, select {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border-color: var(--border-color);
-}
-
-[data-theme="dark"] input,
-[data-theme="dark"] textarea,
-[data-theme="dark"] select {
-  background: #1a1a1a;
-  color: #e0e0e0;
-  border-color: #333333;
-  caret-color: #e0e0e0;
-}
-
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-textarea:-webkit-autofill,
-textarea:-webkit-autofill:hover,
-textarea:-webkit-autofill:focus,
-select:-webkit-autofill,
-select:-webkit-autofill:hover,
-select:-webkit-autofill:focus {
-  -webkit-text-fill-color: var(--text-primary);
-  transition: background-color 9999s ease-in-out 0s;
-}
-
-[data-theme="dark"] input:-webkit-autofill,
-[data-theme="dark"] input:-webkit-autofill:hover,
-[data-theme="dark"] input:-webkit-autofill:focus,
-[data-theme="dark"] textarea:-webkit-autofill,
-[data-theme="dark"] textarea:-webkit-autofill:hover,
-[data-theme="dark"] textarea:-webkit-autofill:focus,
-[data-theme="dark"] select:-webkit-autofill,
-[data-theme="dark"] select:-webkit-autofill:hover,
-[data-theme="dark"] select:-webkit-autofill:focus {
-  -webkit-text-fill-color: #e0e0e0 !important;
-  box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
-  border-color: #333333 !important;
 }

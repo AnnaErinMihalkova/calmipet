@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Animated, Easing } from 'react-native'
+import { getUserInfo } from '../services/storage'
 import { readingsApi, wellnessApi } from '../api/client'
 import HRLineChart from '../components/HRLineChart'
+import { hrvToStressLabel, hrvToCoherenceLabel, computeBaselineHR, summarizeDay } from '../utils/metrics'
+import { alertAbnormalHeartRate, alertHighStress } from '../services/notifications'
 
 const animalEmojis: Record<string, string> = {
   raccoon: '🦝',
@@ -30,17 +32,18 @@ export default function HomeScreen({
   const [refreshing, setRefreshing] = useState(false)
   const [streak, setStreak] = useState<any>(null)
   const [petEmoji, setPetEmoji] = useState('🦝')
+  const scale = React.useRef(new Animated.Value(1)).current
+  const wiggle = React.useRef(new Animated.Value(0)).current
+  const scaleAnimRef = React.useRef<Animated.CompositeAnimation | null>(null)
+  const wiggleAnimRef = React.useRef<Animated.CompositeAnimation | null>(null)
   
   // Static pet display (no animation)
 
   const loadPetChoice = async () => {
     try {
-      const stored = await AsyncStorage.getItem('hb_user_info')
-      if (stored) {
-        const info = JSON.parse(stored)
-        if (info.petAnimal && animalEmojis[info.petAnimal]) {
-          setPetEmoji(animalEmojis[info.petAnimal])
-        }
+      const info = await getUserInfo()
+      if (info?.petAnimal && animalEmojis[info.petAnimal]) {
+        setPetEmoji(animalEmojis[info.petAnimal])
       }
     } catch {}
   }
@@ -81,8 +84,61 @@ export default function HomeScreen({
   const lastReading = readings[readings.length - 1]
   const heartRate = lastReading?.hr ?? '--'
   const hrv = lastReading?.hrv ?? null
-  const stressLabel = hrv == null ? 'Unknown' : hrv < 30 ? 'High' : hrv < 50 ? 'Medium' : 'Low'
-  const coherenceLabel = hrv == null ? 'Unknown' : hrv >= 60 ? 'High' : hrv >= 40 ? 'Medium' : 'Low'
+  const stressLabel = hrvToStressLabel(hrv)
+  const coherenceLabel = hrvToCoherenceLabel(hrv)
+  
+  useEffect(() => {
+    if (scaleAnimRef.current) scaleAnimRef.current.stop()
+    if (wiggleAnimRef.current) wiggleAnimRef.current.stop()
+    scale.setValue(1)
+    wiggle.setValue(0)
+    if (stressLabel === 'High') {
+      scaleAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.15, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 0.98, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
+      )
+      wiggleAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(wiggle, { toValue: 1, duration: 120, useNativeDriver: true }),
+          Animated.timing(wiggle, { toValue: -1, duration: 120, useNativeDriver: true }),
+          Animated.timing(wiggle, { toValue: 0, duration: 120, useNativeDriver: true }),
+        ])
+      )
+      scaleAnimRef.current.start()
+      wiggleAnimRef.current.start()
+    } else if (stressLabel === 'Medium') {
+      scaleAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.05, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 1.0, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
+      )
+      scaleAnimRef.current.start()
+    } else if (stressLabel === 'Low') {
+      scaleAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.08, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 1.0, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
+      )
+      scaleAnimRef.current.start()
+    }
+    return () => {
+      if (scaleAnimRef.current) scaleAnimRef.current.stop()
+      if (wiggleAnimRef.current) wiggleAnimRef.current.stop()
+    }
+  }, [stressLabel, scale, wiggle])
+  
+  useEffect(() => {
+    const baselineHr = computeBaselineHR(readings, 10)
+    const currentHrNum = typeof heartRate === 'number' ? heartRate : null
+    ;(async () => {
+      await alertAbnormalHeartRate(currentHrNum)
+      await alertHighStress(baselineHr, currentHrNum)
+    })()
+  }, [readings])
   
   const showDailySummary = () => {
     const now = new Date()
@@ -92,13 +148,8 @@ export default function HomeScreen({
       const d = new Date(r.createdAt)
       return d >= start && d <= end
     })
-    const count = todays.length
-    const avg = count ? Math.round(todays.reduce((s, r) => s + (r.hr || 0), 0) / count) : null
-    const min = count ? Math.min(...todays.map(r => r.hr || 0)) : null
-    const max = count ? Math.max(...todays.map(r => r.hr || 0)) : null
-    const avgHrv = count ? (todays.reduce((s, r) => s + (r.hrv || 0), 0) / count) : null
-    const mood = avgHrv == null ? 'Unknown' : avgHrv < 30 ? 'High' : avgHrv < 50 ? 'Medium' : 'Low'
-    const msg = `Readings: ${count}\nAvg BPM: ${avg ?? '--'}\nMin/Max: ${min ?? '--'}/${max ?? '--'}\nDay Mood: ${mood}`
+    const { count, avg, min, max, avgHrv, moodLabel } = summarizeDay(todays)
+    const msg = `Readings: ${count}\nAvg BPM: ${avg ?? '--'}\nMin/Max: ${min ?? '--'}/${max ?? '--'}\nDay Mood: ${moodLabel}`
     Alert.alert('Today’s Summary', msg)
   }
 
@@ -145,9 +196,9 @@ export default function HomeScreen({
              <Text style={styles.petSubtitle}>{streak?.current_streak > 0 ? `${streak.current_streak} Day Streak!` : 'Start a streak!'}</Text>
            </View>
            <View style={styles.petContainer}>
-              <Text style={styles.petEmoji}>
-                {petEmoji}{stressLabel === 'High' ? ' 😫' : ''}
-              </Text>
+              <Animated.Text style={[styles.petEmoji, { transform: [{ scale }, { translateX: wiggle.interpolate({ inputRange: [-1, 1], outputRange: [-6, 6] }) }] }]}>
+                {petEmoji}{stressLabel === 'High' ? ' 😫' : stressLabel === 'Medium' ? ' 😶‍🌫️' : ' 😊'}
+              </Animated.Text>
               <View style={styles.petStatusContainer}>
                 <Text style={[styles.petStatusTitle, stressLabel === 'High' ? { color: '#E74C3C' } : null]}>
                   {stressLabel === 'High' ? 'Stressed' : stressLabel === 'Medium' ? 'Focused' : 'Calm & Happy'}

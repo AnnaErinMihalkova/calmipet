@@ -23,3 +23,18 @@ export const getPreferredAnimal = async () => {
 export const setPreferredAnimal = async (animal: string) => {
   await AsyncStorage.setItem(ANIMAL_KEY, animal)
 }
+
+const USER_INFO_KEY = 'hb_user_info'
+export const getUserInfo = async (): Promise<any | null> => {
+  try {
+    const raw = await AsyncStorage.getItem(USER_INFO_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+export const setUserInfo = async (info: any) => {
+  try {
+    await AsyncStorage.setItem(USER_INFO_KEY, JSON.stringify(info))
+  } catch {}
+}

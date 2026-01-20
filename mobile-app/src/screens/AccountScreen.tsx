@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Alert 
 import { authApi, userApi } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { setUserInfo } from '../services/storage'
 
 export default function AccountScreen() {
   const { user, logout, updateUser } = useAuth()
@@ -41,7 +42,7 @@ export default function AccountScreen() {
 
   const saveInfo = async () => {
     try {
-      await AsyncStorage.setItem('hb_user_info', JSON.stringify(info))
+      await setUserInfo(info)
       Alert.alert('Success', 'Info saved locally')
     } catch (e) {
       Alert.alert('Error', 'Failed to save info')
