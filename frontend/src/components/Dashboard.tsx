@@ -71,8 +71,8 @@ const Dashboard: React.FC = () => {
       }
       if (!logMode) {
         const created = await readingService.createReading({
-          hr_bpm: Math.floor(Math.random() * 40) + 60,
-          hrv_rmssd: Math.floor(Math.random() * 50) + 20,
+          heart_rate: Math.floor(Math.random() * 40) + 60,
+          stress_level: Math.floor(Math.random() * 50) + 20,
         });
         setReadings((r) => [...r, created]);
       }
@@ -111,7 +111,7 @@ const Dashboard: React.FC = () => {
   const loadFastApiData = async () => {
     try {
       const rows = await fastapiService.getData();
-      const mapped = rows.map((row: any[]) => ({ hr_bpm: Number(row[1]) } as Reading));
+      const mapped = rows.map((row: any[]) => ({ heart_rate: Number(row[1]) } as Reading));
       setFastapiReadings(mapped);
     } catch {
       setError('Failed to load FastAPI data');
@@ -124,8 +124,8 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const last = readings[readings.length - 1];
-  const heartRate = last?.hr_bpm ?? null;
-  const hrv = last?.hrv_rmssd ?? null;
+  const heartRate = last?.heart_rate ?? null;
+  const hrv = last?.stress_level ?? null;
   const stressLabel = hrv == null ? 'Unknown' : hrv < 30 ? 'High' : hrv < 50 ? 'Medium' : 'Low';
   const coherenceLabel = hrv == null ? 'Unknown' : hrv >= 60 ? 'High' : hrv >= 40 ? 'Medium' : 'Low';
 
@@ -133,15 +133,15 @@ const Dashboard: React.FC = () => {
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
   const todayReadings = readings.filter(r => {
-    if (!r.ts) return false;
-    const d = new Date(r.ts);
+    if (!r.timestamp) return false;
+    const d = new Date(r.timestamp);
     return d >= todayStart && d <= todayEnd;
   });
-  const dayBpmAvg = todayReadings.length ? Math.round(todayReadings.reduce((s, r) => s + (r.hr_bpm || 0), 0) / todayReadings.length) : null;
-  const dayBpmMin = todayReadings.length ? Math.min(...todayReadings.map(r => r.hr_bpm || 0)) : null;
-  const dayBpmMax = todayReadings.length ? Math.max(...todayReadings.map(r => r.hr_bpm || 0)) : null;
+  const dayBpmAvg = todayReadings.length ? Math.round(todayReadings.reduce((s, r) => s + (r.heart_rate || 0), 0) / todayReadings.length) : null;
+  const dayBpmMin = todayReadings.length ? Math.min(...todayReadings.map(r => r.heart_rate || 0)) : null;
+  const dayBpmMax = todayReadings.length ? Math.max(...todayReadings.map(r => r.heart_rate || 0)) : null;
   const dayMood = (() => {
-    const avgHrv = todayReadings.length ? (todayReadings.reduce((s, r) => s + (r.hrv_rmssd || 0), 0) / todayReadings.length) : null;
+    const avgHrv = todayReadings.length ? (todayReadings.reduce((s, r) => s + (r.stress_level || 0), 0) / todayReadings.length) : null;
     if (avgHrv == null) return 'Unknown';
     return avgHrv < 30 ? 'High' : avgHrv < 50 ? 'Medium' : 'Low';
   })();

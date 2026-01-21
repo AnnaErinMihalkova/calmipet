@@ -5,6 +5,8 @@ from app.database import init_db
 from app.config import settings
 from app.routers import sensor
 from app.models import User, LoginPayload, SignupPayload
+from app.database import get_connection
+from app.auth_utils import gen_salt, hash_password, verify_password, make_token_for_user, parse_user_id_from_token
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,14 +31,20 @@ app.include_router(sensor.router, prefix="/api")
 def root():
     return {"status": "CalmiPet backend running"}
 
-# Mock Auth for now
 @app.get("/api/auth/me/")
 def auth_me(request: Request) -> User:
-    # Allow any token for now
-    auth = request.headers.get("authorization") or request.headers.get("Authorization")
-    # if not auth or not auth.startswith("Bearer "):
-    #    raise HTTPException(status_code=401, detail="Unauthorized")
-    return User(id=1, username="demo", email="demo@example.com")
+    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
+    uid = parse_user_id_from_token(auth or "")
+    if uid is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, username, email, date_joined FROM users WHERE id = ?", (uid,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return User(id=row[0], username=row[1], email=row[2])
 
 @app.post("/api/auth/logout/")
 def auth_logout():
@@ -44,27 +52,67 @@ def auth_logout():
 
 @app.post("/api/auth/login/")
 def auth_login(payload: LoginPayload):
-    return {
-        "accessToken": "mock-access-token",
-        "refreshToken": "mock-refresh-token",
-        "user": {"id": 1, "username": "demo", "email": payload.email}
-    }
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, username, email, password_salt, password_hash FROM users WHERE email = ?", (payload.email,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    uid, username, email, salt, phash = row
+    if not verify_password(payload.password, salt, phash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = make_token_for_user(uid)
+    return {"accessToken": token, "refreshToken": token, "user": {"id": uid, "username": username, "email": email}}
 
 @app.post("/api/auth/signup/")
 def auth_signup(payload: SignupPayload):
-    return {
-        "accessToken": "mock-access-token",
-        "refreshToken": "mock-refresh-token",
-        "user": {"id": 1, "username": payload.username, "email": payload.email}
-    }
+    conn = get_connection()
+    cur = conn.cursor()
+    # Check if email exists
+    cur.execute("SELECT id FROM users WHERE email = ?", (payload.email,))
+    if cur.fetchone():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Email already registered")
+    salt = gen_salt()
+    phash = hash_password(payload.password, salt)
+    cur.execute(
+        "INSERT INTO users (email, username, password_salt, password_hash) VALUES (?, ?, ?, ?)",
+        (payload.email, payload.username, salt, phash)
+    )
+    uid = cur.lastrowid
+    conn.commit()
+    conn.close()
+    token = make_token_for_user(uid)
+    return {"accessToken": token, "refreshToken": token, "user": {"id": uid, "username": payload.username, "email": payload.email}}
 
-@app.post("/api/auth/refresh/")
-def auth_refresh():
-    return {
-        "accessToken": "mock-access-token-refreshed",
-        "refreshToken": "mock-refresh-token-new"
-    }
+@app.post("/api/auth/update/")
+def auth_update(request: Request, payload: User):
+    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
+    uid = parse_user_id_from_token(auth or "")
+    if uid is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    conn = get_connection()
+    cur = conn.cursor()
+    # Only allow changing username/email
+    cur.execute("UPDATE users SET username = ?, email = ? WHERE id = ?", (payload.username, payload.email, uid))
+    conn.commit()
+    cur.execute("SELECT id, username, email FROM users WHERE id = ?", (uid,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"id": row[0], "username": row[1], "email": row[2]}
 
-@app.post("/api/privacy/reset-data/")
-def reset_data():
-    return {"message": "Data reset (mock)"}
+@app.delete("/api/auth/delete/")
+def auth_delete(request: Request):
+    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
+    uid = parse_user_id_from_token(auth or "")
+    if uid is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE id = ?", (uid,))
+    conn.commit()
+    conn.close()
+    return {"message": "deleted"}

@@ -16,6 +16,13 @@ class BackendTestCase(unittest.TestCase):
         database.DB_PATH = test_db
         database.init_db()
         cls.client = TestClient(app)
+        # Create test user
+        r = cls.client.post("/api/auth/signup/", json={"email": "demo@example.com", "username": "demo", "password": "pass1234"})
+        if r.status_code != 200 or not r.json().get("accessToken"):
+            r_login = cls.client.post("/api/auth/login/", json={"email": "demo@example.com", "password": "pass1234"})
+            cls.token = r_login.json().get("accessToken")
+        else:
+            cls.token = r.json().get("accessToken")
 
     def test_root(self):
         r = self.client.get("/")
@@ -23,7 +30,7 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(r.json().get("status"), "CalmiPet backend running")
 
     def test_auth_me(self):
-        r = self.client.get("/api/auth/me/")
+        r = self.client.get("/api/auth/me/", headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r.status_code, 200)
         data = r.json()
         self.assertIn("username", data)
@@ -47,7 +54,7 @@ class BackendTestCase(unittest.TestCase):
         self.assertIn("baseline_hr", payload)
 
     def test_readings_endpoints(self):
-        r = self.client.post("/readings/", json={"hr_bpm": 72, "hrv_rmssd": 30.0})
+        r = self.client.post("/readings/", json={"heart_rate": 72, "stress_level": 30.0})
         self.assertEqual(r.status_code, 200)
         self.assertIn("message", r.json())
 
@@ -59,7 +66,7 @@ class BackendTestCase(unittest.TestCase):
             rid = items[0].get("id")
             r2 = self.client.get(f"/readings/{rid}/")
             self.assertEqual(r2.status_code, 200)
-            self.assertIn("hr_bpm", r2.json())
+            self.assertIn("heart_rate", r2.json())
 
     def test_breathing_sessions(self):
         r = self.client.post("/breathing-sessions/")
@@ -69,6 +76,13 @@ class BackendTestCase(unittest.TestCase):
         r = self.client.post(f"/breathing-sessions/{sid}/complete/")
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json().get("completed"))
+
+    def test_streaks_mine(self):
+        r = self.client.get("/streaks/mine/", headers={"Authorization": f"Bearer {self.token}"})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("current_streak", data)
+        self.assertIn("max_streak", data)
 
 
 if __name__ == "__main__":

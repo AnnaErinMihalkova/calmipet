@@ -22,14 +22,14 @@ api.interceptors.request.use((config) => {
 
 export interface Reading {
   id?: number;
-  ts?: string;
-  hr_bpm: number;
-  hrv_rmssd: number;
+  timestamp?: string;
+  heart_rate: number;
+  stress_level?: number;
 }
 
 export type CreateReading = {
-  hr_bpm: number;
-  hrv_rmssd?: number;
+  heart_rate: number;
+  stress_level?: number;
   grip_force?: number;
   posture_score?: number;
 };
@@ -56,7 +56,11 @@ export const readingService = {
 
   // Create a new reading
   createReading: async (reading: CreateReading): Promise<Reading> => {
-    const response = await api.post('readings/', reading);
+    const payload: any = {
+      heart_rate: reading.heart_rate,
+    };
+    if (reading.stress_level !== undefined) payload.stress_level = reading.stress_level;
+    const response = await api.post('readings/', payload);
     return response.data;
   },
 

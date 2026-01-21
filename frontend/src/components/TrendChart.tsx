@@ -3,7 +3,7 @@ import { Reading } from '../services/api';
 
 const TrendChart: React.FC<{ readings: Reading[]; smooth?: boolean; window?: number; onClick?: () => void }> = ({ readings, smooth = false, window = 5, onClick }) => {
   const last = readings.slice(-20);
-  const rawValues = last.map((r) => r.hr_bpm || 0);
+  const rawValues = last.map((r) => r.heart_rate || 0);
   const values = React.useMemo(() => {
     if (!smooth) return rawValues;
     const w = Math.max(1, Math.min(window, rawValues.length || 1));

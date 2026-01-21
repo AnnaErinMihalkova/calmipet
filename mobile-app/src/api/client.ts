@@ -39,9 +39,8 @@ export const userApi = {
 
 export const readingsApi = {
   create: async (accessToken: string, data: { hr: number; hrv?: number | null; ts?: string | Date }) => {
-    const payload: any = { hr_bpm: data.hr }
-    if (data.hrv !== undefined && data.hrv !== null) payload.hrv_rmssd = data.hrv
-    if (data.ts) payload.ts = data.ts
+    const payload: any = { heart_rate: data.hr }
+    if (data.hrv !== undefined && data.hrv !== null) payload.stress_level = data.hrv
     const res = await client.post('/readings/', payload, { headers: { Authorization: `Bearer ${accessToken}` } })
     return res.data
   },
@@ -52,10 +51,10 @@ export const readingsApi = {
     const items = Array.isArray(res.data)
       ? res.data.map((r: any) => ({
           id: String(r.id),
-          hr: r.hr_bpm ?? null,
-          hrv: r.hrv_rmssd ?? null,
-          createdAt: r.ts,
-          userId: r.user,
+          hr: (r.heart_rate ?? r.hr_bpm) ?? null,
+          hrv: (r.stress_level ?? r.hrv_rmssd) ?? null,
+          createdAt: r.timestamp ?? r.ts,
+          userId: r.user ?? null,
         }))
       : []
     return {
@@ -70,10 +69,10 @@ export const readingsApi = {
     const r = res.data
     return {
       id: String(r.id),
-      hr: r.hr_bpm ?? null,
-      hrv: r.hrv_rmssd ?? null,
-      createdAt: r.ts,
-      userId: r.user,
+      hr: (r.heart_rate ?? r.hr_bpm) ?? null,
+      hrv: (r.stress_level ?? r.hrv_rmssd) ?? null,
+      createdAt: r.timestamp ?? r.ts,
+      userId: r.user ?? null,
     }
   },
 }

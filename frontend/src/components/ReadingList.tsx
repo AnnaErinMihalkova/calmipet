@@ -34,10 +34,9 @@ const ReadingList: React.FC = () => {
   const handleCreateReading = async () => {
     try {
       const newReading: CreateReading = {
-        hr_bpm: Math.floor(Math.random() * 40) + 60,
-        hrv_rmssd: Math.floor(Math.random() * 50) + 20,
+        heart_rate: Math.floor(Math.random() * 40) + 60,
+        stress_level: Math.floor(Math.random() * 50) + 20,
       };
-      
       const created = await readingService.createReading(newReading);
       setReadings([...readings, created]);
     } catch (err) {
@@ -91,14 +90,14 @@ const ReadingList: React.FC = () => {
           <h2 className="readings-section-title">Recent Readings</h2>
           {readings.map((reading) => (
             <div key={reading.id} className="reading-card">
-              <p className="reading-item"><strong>Date:</strong> {reading.ts ? new Date(reading.ts).toLocaleString() : 'N/A'}</p>
-              <p className="reading-item"><strong>Heart Rate:</strong> {reading.hr_bpm} BPM</p>
-              <p className="reading-item"><strong>HRV/Stress:</strong> {reading.hrv_rmssd < 1 ? (reading.hrv_rmssd * 100).toFixed(0) + '%' : reading.hrv_rmssd.toFixed(1)}</p>
+              <p className="reading-item"><strong>Date:</strong> {reading.timestamp ? new Date(reading.timestamp).toLocaleString() : 'N/A'}</p>
+              <p className="reading-item"><strong>Heart Rate:</strong> {reading.heart_rate} BPM</p>
+              <p className="reading-item"><strong>Stress:</strong> {reading.stress_level == null ? 'N/A' : reading.stress_level < 1 ? (reading.stress_level * 100).toFixed(0) + '%' : reading.stress_level.toFixed(1)}</p>
               <p className="reading-item"><strong>Mood:</strong> {
-                reading.hrv_rmssd < 0.3 ? '😌 Calm' :
-                reading.hrv_rmssd < 0.6 ? '😐 Focused' :
-                reading.hrv_rmssd < 1.0 ? '😫 Stressed' :
-                reading.hrv_rmssd > 50 ? '😌 Calm (High HRV)' : '😐 Balanced'
+                (reading.stress_level ?? 0) < 0.3 ? '😌 Calm' :
+                (reading.stress_level ?? 0) < 0.6 ? '😐 Focused' :
+                (reading.stress_level ?? 0) < 1.0 ? '😫 Stressed' :
+                (reading.stress_level ?? 0) > 50 ? '😌 Calm (High HRV)' : '😐 Balanced'
               }</p>
             </div>
           ))}
