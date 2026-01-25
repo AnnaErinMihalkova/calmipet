@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
+import { Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 const STRESS_NOTIFY_KEY = 'lastStressNotifyTs'
@@ -8,6 +9,8 @@ const REMINDER_IDS_KEY = 'dailyReminderIds'
 
 export async function initNotifications() {
   try {
+    // Expo Go on Android might warn about remote notifications, but local should work.
+    // We'll wrap this in a try/catch to ensure it doesn't block the app.
     if (Device.isDevice) {
       const { status: existingStatus } = await Notifications.getPermissionsAsync()
       let finalStatus = existingStatus
@@ -18,8 +21,8 @@ export async function initNotifications() {
       if (finalStatus !== 'granted') {
         return false
       }
-      if (await Device.getDeviceTypeAsync() === Device.DeviceType.PHONE) {
-        await Notifications.setNotificationChannelAsync('default', {
+      if (Platform.OS === 'android') {
+         await Notifications.setNotificationChannelAsync('default', {
           name: 'Default',
           importance: Notifications.AndroidImportance.DEFAULT,
         })
@@ -27,7 +30,8 @@ export async function initNotifications() {
       return true
     }
     return false
-  } catch {
+  } catch (e) {
+    console.log('Notification init failed (safe to ignore in Expo Go):', e)
     return false
   }
 }
