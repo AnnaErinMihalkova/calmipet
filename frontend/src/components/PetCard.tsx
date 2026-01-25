@@ -1,5 +1,6 @@
 import React from 'react';
 import { wellnessService } from '../services/api';
+import PetGraphic from './PetGraphic';
 
 const PetCard: React.FC = () => {
   const [pet, setPet] = React.useState<any>(null);
@@ -33,27 +34,28 @@ const PetCard: React.FC = () => {
     }
   };
   const selected = getSelected();
-  const emojiMap: Record<string, string> = { raccoon: '🦝', cat: '🐱', fox: '🦊', owl: '🦉' };
   const moodLabel = pet ? pet.mood : ready ? 'calm' : null;
   const stressed = (pet && pet.mood === 'stressed') || (pet && pet.mood_score !== undefined && pet.mood_score < 0.4);
+  const mood: 'calm' | 'focused' | 'stressed' = stressed ? 'stressed' : moodLabel === 'focused' ? 'focused' : 'calm';
   return (
-    <div style={{ padding: 16, border: '1px solid var(--border-color)', borderRadius: 12 }}>
+    <div style={{ padding: 16, border: '1px solid var(--border-color)', borderRadius: 18, background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(52,152,219,0.08))' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontWeight: 600 }}>Your Pet</div>
-        <div>{streak ? `Streak: ${streak.current_streak}d` : ''}</div>
-      </div>
-      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 240, height: 240, borderRadius: 24, display: 'grid', placeItems: 'center', background: stressed ? 'rgba(255,0,0,0.08)' : 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-          <div style={{ fontSize: 120, lineHeight: 1 }}>
-            {emojiMap[selected]} {stressed ? '😫' : ''}
-          </div>
+        <div style={{ fontWeight: 800 }}>Your Pet</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Lvl {streak?.level ?? 1}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{streak ? `Streak ${streak.current_streak}d` : ''}</div>
         </div>
       </div>
-      <div style={{ marginTop: 8, color: stressed ? 'var(--accent-color)' : 'inherit' }}>
+      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 240, height: 240, borderRadius: 120, display: 'grid', placeItems: 'center', background: stressed ? 'rgba(255,0,0,0.08)' : 'var(--bg-secondary)', border: '2px solid var(--border-color)', boxShadow: 'var(--shadow-lg)' }}>
+          <PetGraphic animal={selected as any} mood={mood} size={168} />
+        </div>
+      </div>
+      <div style={{ marginTop: 10, fontSize: 14, fontWeight: 700, color: stressed ? 'var(--accent-color)' : 'inherit' }}>
         {pet ? `Mood: ${pet.mood}` : ready ? 'Mood: calm' : 'Loading...'}
       </div>
-      <div style={{ marginTop: 4 }}>
-        {pet ? `Mood score: ${(pet.mood_score * 100).toFixed(0)}%` : ''}
+      <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-secondary)' }}>
+        {pet ? `Mood score ${(pet.mood_score * 100).toFixed(0)}%` : ''}
       </div>
     </div>
   );

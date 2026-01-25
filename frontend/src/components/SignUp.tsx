@@ -53,13 +53,17 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    const next = { ...formData, [name]: value };
+    setFormData(next);
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
+    }
+    // Live check for password mismatch to avoid false negatives
+    if ((name === 'password' || name === 'confirmPassword') && next.password && next.confirmPassword) {
+      const p = (next.password || '').trim();
+      const c = (next.confirmPassword || '').trim();
+      setErrors((prev) => ({ ...prev, confirmPassword: p !== c ? 'Passwords do not match' : '' }));
     }
     setSuccessMessage('');
   };
@@ -97,8 +101,17 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
 
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+    } else {
+      const normalizePw = (s: string) =>
+        (s || '')
+          .normalize('NFKC')
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')
+          .trim();
+      const pNorm = normalizePw(formData.password);
+      const cNorm = normalizePw(formData.confirmPassword);
+      if (pNorm !== cNorm) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
     }
 
     setErrors(newErrors);

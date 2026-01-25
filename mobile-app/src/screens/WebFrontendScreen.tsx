@@ -60,6 +60,7 @@ export default function WebFrontendScreen({ route }: { route?: string }) {
         injectedJavaScriptBeforeContentLoaded={preInject}
         injectedJavaScript={inject}
         onLoadEnd={() => setLoading(false)}
+        onError={() => setLoading(false)}
         startInLoadingState
         style={styles.webview}
         bounces={true}
@@ -68,6 +69,7 @@ export default function WebFrontendScreen({ route }: { route?: string }) {
         showsVerticalScrollIndicator={true}
         showsHorizontalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
+        mixedContentMode="always"
       />
       {loading && (
         <View style={styles.loaderOverlay}>

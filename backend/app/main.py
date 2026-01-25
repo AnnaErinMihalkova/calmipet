@@ -104,6 +104,19 @@ def auth_update(request: Request, payload: User):
         raise HTTPException(status_code=404, detail="User not found")
     return {"id": row[0], "username": row[1], "email": row[2]}
 
+@app.post("/api/auth/promote/")
+def auth_promote(request: Request):
+    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
+    uid = parse_user_id_from_token(auth or "")
+    if uid is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (uid,))
+    conn.commit()
+    conn.close()
+    return {"message": "promoted", "user_id": uid}
+
 @app.delete("/api/auth/delete/")
 def auth_delete(request: Request):
     auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
