@@ -2,31 +2,28 @@
 
 ## Sprint Verification
 
-- Backend running at `http://localhost:4000` with SQLite (`server/.env: DATABASE_URL=file:./dev.db`).
-- Prisma schema synced; models: `User`, `RefreshToken`, `Reading` with relations.
-- Auth works: signup/login return expected status; JWT issued with access/refresh.
-- Readings CRUD works: create and list scoped to authenticated user.
-- Tests pass: end-to-end flow (signup → login → create reading → list readings).
-- Mobile app authenticates against API; session persisted with AsyncStorage; AuthGuard blocks unauthenticated access.
+- Backend (FastAPI) running at `http://localhost:8000` with SQLite (`data/calmipet.db`).
+- Auth works: signup/login return expected status; tokens issued (uid:* format).
+- Readings work: create/list scoped до автентикиран потребител.
+- Pets, streaks и breathing sessions работят през `/api/*`.
+- Тестовете минават: end-to-end (signup → login → create reading → list readings).
+- Mobile/Web говорят към `http://localhost:8000/api`.
 
 ## How To Run
 
-- Backend: `npm run dev` in `server/`.
-- Frontend Web: set `REACT_APP_API_BASE_URL='http://localhost:4000/api'`, then `npm start` in `frontend/`.
-- Mobile (Expo): set `EXPO_PUBLIC_API_BASE_URL='http://localhost:4000/api'`, then `npm start` in `mobile/`.
+- Backend: `uvicorn app.main:app --host 0.0.0.0 --port 8000` в `backend/` (или `python -m uvicorn app.main:app --host 0.0.0.0 --port 8000`).
+- Frontend Web: `REACT_APP_API_BASE_URL='http://localhost:8000/api'` и `npm start` в `frontend/`.
+- Mobile (Expo): `EXPO_PUBLIC_API_BASE_URL='http://localhost:8000/api'` и `expo start` в `mobile-app/`.
 
 ## Key Files
 
-- Server Prisma schema: `server/prisma/schema.prisma`.
-- JWT utilities: `server/src/libs/jwt.ts`.
-- Auth routes/controllers: `server/src/modules/auth/*`.
-- Readings module: `server/src/modules/readings/*`.
-- Web login component: `frontend/src/components/Login.tsx`.
-- Mobile auth context: `mobile/src/context/AuthContext.tsx`.
-- Mobile auth guard: `mobile/src/components/AuthGuard.tsx`.
+- Backend app: `backend/app/main.py`, `backend/app/routers/sensor.py`, `backend/app/database.py`
+- Auth utils: `backend/app/auth_utils.py`
+- Web login component: `frontend/src/components/Login.tsx`
+- Mobile auth context: `mobile-app/src/context/AuthContext.tsx`
 
 ## Remaining Issues
 
-- Migrations: No migration files were created; schema was applied via `prisma db push`. Create migration history with `npx prisma migrate dev --name init` (reset dev DB if prompted).
-- Prisma EPERM rename warnings on Windows when dev server is running; stop the server before `prisma generate/push/migrate` to avoid file locks.
-- GitHub push may require credentials or remote setup; ensure `git remote` is configured and authentication is available.
+- SQLite schema evolves в `init_db()`; миграции не са нужни за dev, но production трябва strategy.
+- На Windows, задължително спри сървъра преди промяна на DB schema.
+- GitHub push може да изисква настройка на remote/credentials.

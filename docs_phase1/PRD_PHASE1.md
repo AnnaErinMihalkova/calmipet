@@ -29,8 +29,8 @@ See `docs/PERSONA_PHASE1.md`.
 
 ## 8. Technology Stack (Phase 1)
 - Frontend: React + TypeScript (CRA), static build served at `localhost:3001`
-- Backend: Django REST at `127.0.0.1:8000`, session auth, CORS for localhost
-- DB: SQLite for dev; Postgres optional later
+- Backend: FastAPI at `127.0.0.1:8000` (монтиран под `/api`), CORS за localhost
+- DB: SQLite за dev (`data/calmipet.db`)
 
 ## 9. Phase 1 Success Metrics
 - Sign‑up success rate and login success rate on localhost

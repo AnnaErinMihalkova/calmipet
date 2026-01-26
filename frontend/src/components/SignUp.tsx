@@ -166,21 +166,20 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
         }
       }, 1000);
     } catch (error: any) {
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        if (errorData.email) {
-          setErrors({ email: Array.isArray(errorData.email) ? errorData.email[0] : errorData.email });
-        } else if (errorData.username) {
-          setErrors({ username: Array.isArray(errorData.username) ? errorData.username[0] : errorData.username });
-        } else if (errorData.password) {
-          setErrors({ password: Array.isArray(errorData.password) ? errorData.password[0] : errorData.password });
-        } else {
-          setErrors({ email: 'An error occurred. Please try again.' });
-        }
-      } else if (error.message) {
-        setErrors({ email: error.message });
+      const data = error?.response?.data;
+      if (data) {
+        const detail = typeof data.detail === 'string' ? data.detail : '';
+        const emailErr = data.email ? (Array.isArray(data.email) ? data.email[0] : data.email) : '';
+        const userErr = data.username ? (Array.isArray(data.username) ? data.username[0] : data.username) : '';
+        const passErr = data.password ? (Array.isArray(data.password) ? data.password[0] : data.password) : '';
+        if (emailErr) setErrors({ email: emailErr });
+        else if (userErr) setErrors({ username: userErr });
+        else if (passErr) setErrors({ password: passErr });
+        else if (detail) setErrors({ email: detail });
+        else setErrors({ email: 'An error occurred. Please try again.' });
       } else {
-        setErrors({ email: 'An error occurred. Please try again.' });
+        const msg = typeof error?.message === 'string' ? error.message : 'An error occurred. Please try again.';
+        setErrors({ email: msg });
       }
     } finally {
       setIsLoading(false);

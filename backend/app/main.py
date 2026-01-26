@@ -23,8 +23,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(sensor.router)
-# Also mount router under /api to match legacy Django URLs if needed, or mobile config points to /api
 app.include_router(sensor.router, prefix="/api") 
 
 @app.get("/")

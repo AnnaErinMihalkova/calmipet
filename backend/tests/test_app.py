@@ -43,16 +43,16 @@ class BackendTestCase(unittest.TestCase):
         self.assertIn("email", data)
 
     def test_data_flow_and_analyze(self):
-        r = self.client.post("/data", json={"heart_rate": 80, "spo2": 98, "stress_level": 0.2})
+        r = self.client.post("/api/data", json={"heart_rate": 80, "spo2": 98, "stress_level": 0.2})
         self.assertEqual(r.status_code, 200)
         self.assertIn("message", r.json())
 
-        r = self.client.get("/data")
+        r = self.client.get("/api/data")
         self.assertEqual(r.status_code, 200)
         rows = r.json()
         self.assertTrue(len(rows) >= 1)
 
-        r = self.client.post("/analyze", json={"heart_rate": 85})
+        r = self.client.post("/api/analyze", json={"heart_rate": 85})
         self.assertEqual(r.status_code, 200)
         payload = r.json()
         self.assertIn("score", payload)
@@ -60,33 +60,33 @@ class BackendTestCase(unittest.TestCase):
         self.assertIn("baseline_hr", payload)
 
     def test_readings_endpoints(self):
-        r = self.client.post("/readings/", json={"heart_rate": 72, "stress_level": 30.0}, headers={"Authorization": f"Bearer {self.token}"})
+        r = self.client.post("/api/readings/", json={"heart_rate": 72, "stress_level": 30.0}, headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r.status_code, 200)
         self.assertIn("message", r.json())
 
-        r = self.client.get("/readings/", headers={"Authorization": f"Bearer {self.token}"})
+        r = self.client.get("/api/readings/", headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r.status_code, 200)
         items = r.json()
         self.assertIsInstance(items, list)
         if items:
             rid = items[0].get("id")
-            r2 = self.client.get(f"/readings/{rid}/", headers={"Authorization": f"Bearer {self.token}"})
+            r2 = self.client.get(f"/api/readings/{rid}/", headers={"Authorization": f"Bearer {self.token}"})
             self.assertEqual(r2.status_code, 200)
             self.assertIn("heart_rate", r2.json())
 
     def test_readings_require_auth(self):
-        r = self.client.post("/readings/", json={"heart_rate": 70, "stress_level": 10.0})
+        r = self.client.post("/api/readings/", json={"heart_rate": 70, "stress_level": 10.0})
         self.assertEqual(r.status_code, 401)
-        r = self.client.get("/readings/")
+        r = self.client.get("/api/readings/")
         self.assertEqual(r.status_code, 401)
 
     def test_multi_user_readings_isolated(self):
-        r1 = self.client.post("/readings/", json={"heart_rate": 177, "stress_level": 1.0}, headers={"Authorization": f"Bearer {self.token}"})
+        r1 = self.client.post("/api/readings/", json={"heart_rate": 177, "stress_level": 1.0}, headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r1.status_code, 200)
-        r2 = self.client.post("/readings/", json={"heart_rate": 278, "stress_level": 2.0}, headers={"Authorization": f"Bearer {self.token2}"})
+        r2 = self.client.post("/api/readings/", json={"heart_rate": 278, "stress_level": 2.0}, headers={"Authorization": f"Bearer {self.token2}"})
         self.assertEqual(r2.status_code, 200)
-        list1 = self.client.get("/readings/", headers={"Authorization": f"Bearer {self.token}"}).json()
-        list2 = self.client.get("/readings/", headers={"Authorization": f"Bearer {self.token2}"}).json()
+        list1 = self.client.get("/api/readings/", headers={"Authorization": f"Bearer {self.token}"}).json()
+        list2 = self.client.get("/api/readings/", headers={"Authorization": f"Bearer {self.token2}"}).json()
         hr1 = [item.get("heart_rate") for item in list1]
         hr2 = [item.get("heart_rate") for item in list2]
         self.assertIn(177, hr1)
@@ -95,27 +95,27 @@ class BackendTestCase(unittest.TestCase):
         self.assertNotIn(278, hr1)
 
     def test_breathing_sessions(self):
-        r = self.client.post("/breathing-sessions/", headers={"Authorization": f"Bearer {self.token}"})
+        r = self.client.post("/api/breathing-sessions/", headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r.status_code, 200)
         sid = r.json().get("id")
         self.assertIsNotNone(sid)
-        r = self.client.post(f"/breathing-sessions/{sid}/complete/", headers={"Authorization": f"Bearer {self.token}"})
+        r = self.client.post(f"/api/breathing-sessions/{sid}/complete/", headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json().get("completed"))
 
     def test_streaks_mine(self):
-        r = self.client.get("/streaks/mine/", headers={"Authorization": f"Bearer {self.token}"})
+        r = self.client.get("/api/streaks/mine/", headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r.status_code, 200)
         data = r.json()
         self.assertIn("current_streak", data)
         self.assertIn("max_streak", data)
 
     def test_pets_per_user(self):
-        r = self.client.get("/pets/mine/", headers={"Authorization": f"Bearer {self.token}"})
+        r = self.client.get("/api/pets/mine/", headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r.status_code, 200)
         data = r.json()
         self.assertIn("pet_animal", data)
-        r2 = self.client.post("/pets/mine/update/", json={"pet_animal": "fox", "xp_delta": 10}, headers={"Authorization": f"Bearer {self.token}"})
+        r2 = self.client.post("/api/pets/mine/update/", json={"pet_animal": "fox", "xp_delta": 10}, headers={"Authorization": f"Bearer {self.token}"})
         self.assertEqual(r2.status_code, 200)
         updated = r2.json()
         self.assertEqual(updated.get("pet_animal"), "fox")
