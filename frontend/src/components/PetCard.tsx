@@ -53,26 +53,8 @@ const PetCard: React.FC = () => {
         </div>
       </div>
       <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{
-          width: 280,
-          height: 280,
-          borderRadius: '50%',
-          background: stressed
-            ? 'radial-gradient(60% 60% at 50% 50%, rgba(231,76,60,0.28), transparent)'
-            : 'radial-gradient(60% 60% at 50% 50%, rgba(124,58,237,0.25), transparent)',
-          display: 'grid',
-          placeItems: 'center',
-          boxShadow: stressed ? '0 0 40px rgba(231,76,60,0.3) inset' : '0 0 40px rgba(124,58,237,0.3) inset'
-        }}>
-          <div style={{
-            transform: stressed ? `translate(${Math.sin(tick / 3) * 2}px, ${Math.cos(tick / 4) * 2}px)` : 'none',
-            transition: 'transform 80ms linear',
-            willChange: 'transform',
-            display: 'grid',
-            placeItems: 'center'
-          }}>
-            <PetGraphic animal={selected as any} mood={mood} size={168} />
-          </div>
+        <div style={{ width: 280, height: 280, borderRadius: '50%', background: stressed ? 'radial-gradient(60% 60% at 50% 50%, rgba(231,76,60,0.28), transparent)' : 'radial-gradient(60% 60% at 50% 50%, rgba(124,58,237,0.25), transparent)', display: 'grid', placeItems: 'center', boxShadow: stressed ? '0 0 40px rgba(231,76,60,0.3) inset' : '0 0 40px rgba(124,58,237,0.3) inset' }}>
+          <PetGraphic animal={selected as any} mood={mood} size={168} />
         </div>
       </div>
       <div style={{ marginTop: 10, fontSize: 14, fontWeight: 700, color: stressed ? 'var(--accent-color)' : 'inherit' }}>

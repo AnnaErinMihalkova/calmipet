@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="256" fill="#7C3AED"/>
+  <circle cx="256" cy="256" r="235" fill="#FFFFFF"/>
+  
+  <!-- Raccoon Face Group -->
+  <g transform="translate(256, 260) scale(1.1)">
+    <!-- Ears -->
+    <path d="M-90 -110 C-110 -160 -50 -170 -25 -120 Z" fill="#9CA3AF" stroke="#7C3AED" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M90 -110 C110 -160 50 -170 25 -120 Z" fill="#9CA3AF" stroke="#7C3AED" stroke-width="8" stroke-linejoin="round"/>
+    <!-- Inner Ears -->
+    <path d="M-80 -115 C-90 -140 -55 -145 -40 -120 Z" fill="#F3F4F6"/>
+    <path d="M80 -115 C90 -140 55 -145 40 -120 Z" fill="#F3F4F6"/>
+
+    <!-- Head Shape -->
+    <path d="M-110 -50 C-130 50 -90 120 0 120 C90 120 130 50 110 -50 C100 -110 -100 -110 -110 -50 Z" fill="#9CA3AF" stroke="#7C3AED" stroke-width="6"/>
+    
+    <!-- White Face Mask / Cheeks -->
+    <path d="M-110 -30 C-120 40 -70 100 0 100 C70 100 120 40 110 -30 C100 -60 70 -40 50 -40 C30 -40 10 -20 0 -20 C-10 -20 -30 -40 -50 -40 C-70 -40 -100 -60 -110 -30 Z" fill="#F3F4F6"/>
+    
+    <!-- Dark Eye Mask -->
+    <path d="M-95 -25 C-105 0 -90 40 -50 40 C-30 40 -15 20 -15 -5 C-15 -30 -45 -45 -95 -25 Z" fill="#374151"/>
+    <path d="M95 -25 C105 0 90 40 50 40 C30 40 15 20 15 -5 C15 -30 45 -45 95 -25 Z" fill="#374151"/>
+    
+    <!-- Eyes -->
+    <circle cx="-55" cy="5" r="14" fill="#FFFFFF"/>
+    <circle cx="-55" cy="5" r="7" fill="#7C3AED"/>
+    <circle cx="-52" cy="2" r="3" fill="#FFFFFF"/>
+    
+    <circle cx="55" cy="5" r="14" fill="#FFFFFF"/>
+    <circle cx="55" cy="5" r="7" fill="#7C3AED"/>
+    <circle cx="58" cy="2" r="3" fill="#FFFFFF"/>
+    
+    <!-- Nose -->
+    <ellipse cx="0" cy="55" rx="14" ry="10" fill="#1F2937"/>
+    <ellipse cx="-4" cy="52" rx="5" ry="3" fill="#6B7280"/>
+    
+    <!-- Mouth -->
+    <path d="M-18 80 Q0 90 18 80" stroke="#374151" stroke-width="5" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>
