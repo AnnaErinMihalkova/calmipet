@@ -25,16 +25,19 @@ app.add_middleware(
 
 app.include_router(sensor.router, prefix="/api") 
 
+def get_current_user_id(request: Request) -> int:
+    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
+    uid = parse_user_id_from_token(auth or "")
+    if uid is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return uid
+
 @app.get("/")
 def root():
     return {"status": "CalmiPet backend running"}
 
 @app.get("/api/auth/me/")
-def auth_me(request: Request) -> User:
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def auth_me(uid: int = Depends(get_current_user_id)) -> User:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, username, email, date_joined FROM users WHERE id = ?", (uid,))
@@ -85,11 +88,7 @@ def auth_signup(payload: SignupPayload):
     return {"accessToken": token, "refreshToken": token, "user": {"id": uid, "username": payload.username, "email": payload.email}}
 
 @app.post("/api/auth/update/")
-def auth_update(request: Request, payload: User):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def auth_update(payload: User, uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cur = conn.cursor()
     # Only allow changing username/email
@@ -103,11 +102,7 @@ def auth_update(request: Request, payload: User):
     return {"id": row[0], "username": row[1], "email": row[2]}
 
 @app.post("/api/auth/promote/")
-def auth_promote(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def auth_promote(uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (uid,))
@@ -116,11 +111,7 @@ def auth_promote(request: Request):
     return {"message": "promoted", "user_id": uid}
 
 @app.delete("/api/auth/delete/")
-def auth_delete(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def auth_delete(uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM users WHERE id = ?", (uid,))

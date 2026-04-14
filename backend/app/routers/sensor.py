@@ -8,14 +8,18 @@ from datetime import datetime, timedelta, date
 
 router = APIRouter()
 
-def _too_soon(conn, uid: int | None = None) -> bool:
+def get_current_user_id(request: Request) -> int:
+    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
+    uid = parse_user_id_from_token(auth or "")
+    if uid is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return uid
+
+def _too_soon(conn, uid: int) -> bool:
     if os.getenv("CALMIPET_SKIP_RATE_LIMIT") == "1":
         return False
     cur = conn.cursor()
-    if uid is not None:
-        cur.execute("SELECT timestamp FROM sensor_data WHERE user_id = ? ORDER BY timestamp DESC LIMIT 1", (uid,))
-    else:
-        cur.execute("SELECT timestamp FROM sensor_data ORDER BY timestamp DESC LIMIT 1")
+    cur.execute("SELECT timestamp FROM sensor_data WHERE user_id = ? ORDER BY timestamp DESC LIMIT 1", (uid,))
     row = cur.fetchone()
     if not row or not row[0]:
         return False
@@ -27,34 +31,34 @@ def _too_soon(conn, uid: int | None = None) -> bool:
     return (now - last) < timedelta(minutes=10)
 
 @router.post("/data")
-def add_data(payload: DataPayload):
+def add_data(payload: DataPayload, uid: int = Depends(get_current_user_id)):
     conn = get_connection()
-    if _too_soon(conn):
+    if _too_soon(conn, uid):
         conn.close()
         raise HTTPException(status_code=429, detail="Please wait 10 minutes between readings")
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO sensor_data (heart_rate, spo2, stress_level) VALUES (?, ?, ?)",
-        (payload.heart_rate, payload.spo2, payload.stress_level if payload.stress_level is not None else 0.0)
+        "INSERT INTO sensor_data (heart_rate, spo2, stress_level, user_id) VALUES (?, ?, ?, ?)",
+        (payload.heart_rate, payload.spo2, payload.stress_level if payload.stress_level is not None else 0.0, uid)
     )
     conn.commit()
     conn.close()
     return {"message": "Data saved"}
 
 @router.get("/data")
-def get_data():
+def get_data(uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC")
+    cursor.execute("SELECT id, heart_rate, spo2, stress_level, timestamp FROM sensor_data WHERE user_id = ? ORDER BY timestamp DESC", (uid,))
     rows = cursor.fetchall()
     conn.close()
     return rows
 
 @router.post("/analyze")
-def analyze(payload: AnalyzePayload) -> Dict[str, Any]:
+def analyze(payload: AnalyzePayload, uid: int = Depends(get_current_user_id)) -> Dict[str, Any]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT heart_rate FROM sensor_data ORDER BY timestamp DESC LIMIT 20")
+    cursor.execute("SELECT heart_rate FROM sensor_data WHERE user_id = ? ORDER BY timestamp DESC LIMIT 20", (uid,))
     hr_rows = cursor.fetchall()
     conn.close()
     history_hr: List[int] = [r[0] for r in hr_rows] if hr_rows else []
@@ -76,11 +80,7 @@ def analyze(payload: AnalyzePayload) -> Dict[str, Any]:
     }
 
 @router.get("/readings/")
-def list_readings(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def list_readings(uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, heart_rate, stress_level, timestamp FROM sensor_data WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50", (uid,))
@@ -97,11 +97,7 @@ def list_readings(request: Request):
     ]
 
 @router.get("/readings/{id}/")
-def get_reading(id: int, request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def get_reading(id: int, uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, heart_rate, stress_level, timestamp, user_id FROM sensor_data WHERE id = ?", (id,))
@@ -119,11 +115,7 @@ def get_reading(id: int, request: Request):
     }
 
 @router.post("/readings/")
-def create_reading(payload: Dict[str, Any], request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def create_reading(payload: Dict[str, Any], uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     if _too_soon(conn, uid):
         conn.close()
@@ -150,11 +142,7 @@ def create_reading(payload: Dict[str, Any], request: Request):
     }
 
 @router.post("/bracelet/readings/")
-def create_reading_external(payload: Dict[str, Any], request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def create_reading_external(payload: Dict[str, Any], uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     if _too_soon(conn, uid):
         conn.close()
@@ -181,11 +169,7 @@ def create_reading_external(payload: Dict[str, Any], request: Request):
     }
 
 @router.get("/pets/mine/")
-def get_pet(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def get_pet(uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT pet_animal, mood, level, xp FROM pets WHERE user_id = ?", (uid,))
@@ -199,11 +183,7 @@ def get_pet(request: Request):
     return {"pet_animal": row[0], "mood": row[1], "level": row[2], "xp": row[3]}
 
 @router.post("/pets/mine/update/")
-def update_pet(request: Request, payload: Dict[str, Any]):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def update_pet(payload: Dict[str, Any], uid: int = Depends(get_current_user_id)):
     pet_animal = payload.get("pet_animal", None)
     mood = payload.get("mood", None)
     level = payload.get("level", None)
@@ -240,11 +220,7 @@ def update_pet(request: Request, payload: Dict[str, Any]):
     return {"pet_animal": row[0], "mood": row[1], "level": row[2], "xp": row[3]}
 
 @router.get("/streaks/mine/")
-def get_streak(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def get_streak(uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT current_streak, max_streak, level, badges, sessions_today, last_session_date FROM gamification WHERE user_id = ?", (uid,))
@@ -265,11 +241,7 @@ def get_streak(request: Request):
     }
 
 @router.post("/breathing-sessions/")
-def create_breathing_session(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def create_breathing_session(uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO breathing_sessions (duration_seconds, user_id) VALUES (60, ?)", (uid,))
@@ -279,11 +251,7 @@ def create_breathing_session(request: Request):
     return {"id": session_id, "started_at": "now", "completed": False}
 
 @router.post("/breathing-sessions/{id}/complete/")
-def complete_breathing_session(id: int, request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def complete_breathing_session(id: int, uid: int = Depends(get_current_user_id)):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE breathing_sessions SET completed = 1, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", (id, uid))

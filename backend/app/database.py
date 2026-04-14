@@ -48,22 +48,7 @@ def init_db():
     info_users = cursor.execute("PRAGMA table_info(users)").fetchall()
     if not any(col[1] == "is_admin" for col in info_users):
         cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
-    # Seed demo user for easier login during development
-    try:
-        cur2 = conn.cursor()
-        cur2.execute("SELECT id FROM users WHERE email = ?", ("demo@example.com",))
-        row = cur2.fetchone()
-        if not row:
-            from app.auth_utils import gen_salt, hash_password  # local import to avoid circular deps
-            salt = gen_salt()
-            phash = hash_password("pass1234", salt)
-            cur2.execute(
-                "INSERT INTO users (email, username, password_salt, password_hash) VALUES (?, ?, ?, ?)",
-                ("demo@example.com", "demo", salt, phash)
-            )
-            conn.commit()
-    except Exception:
-        pass
+    # No longer seeding demo user for cleaner multi-user environment
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS gamification (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
