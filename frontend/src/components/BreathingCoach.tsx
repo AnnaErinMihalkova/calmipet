@@ -1,118 +1,118 @@
-import React from 'react';
-import { wellnessService } from '../services/api';
-import './Login.css';
+import React, { useState, useEffect } from 'react';
+import { breathingService } from '../services/api';
 import PetGraphic from './PetGraphic';
+import { authService, UserProfile } from '../services/auth';
+import './BreathingCoach.css';
 
-type Props = {
-  open: boolean;
+interface Props {
   onClose: () => void;
-  onCompleted: () => void;
-};
+}
 
-const BreathingCoach: React.FC<Props> = ({ open, onClose, onCompleted }) => {
-  const [sessionId, setSessionId] = React.useState<number | null>(null);
-  const [secondsLeft, setSecondsLeft] = React.useState<number>(60);
-  const [running, setRunning] = React.useState<boolean>(false);
-  const progress = 60 - secondsLeft;
-  const cycle = progress % 10;
-  const phase = cycle < 4 ? 'Inhale…' : cycle < 6 ? 'Hold…' : 'Exhale…';
-  const scale = cycle < 4 ? 1 + cycle * 0.06 : cycle < 6 ? 1.24 : 1.24 - (cycle - 6) * 0.06;
-
+const BreathingCoach: React.FC<Props> = ({ onClose }) => {
+  const [user, setUser] = React.useState<UserProfile | null>(null);
+  
   React.useEffect(() => {
-    if (!open) return;
-    setSessionId(null);
-    setSecondsLeft(60);
-    setRunning(false);
-  }, [open]);
+    authService.getMe().then(setUser).catch(() => {});
+  }, []);
 
-  React.useEffect(() => {
-    if (!running) return;
-    const interval = setInterval(() => {
-      setSecondsLeft((s) => s - 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [running]);
+  const [phase, setPhase] = useState<'idle' | 'inhale' | 'hold' | 'exhale'>('idle');
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [sessionId, setSessionId] = useState<number | null>(null);
 
-  React.useEffect(() => {
-    if (secondsLeft === 0 && running && sessionId) {
-      wellnessService.completeBreathingSession(sessionId).then(() => {
-        setRunning(false);
-        onCompleted();
-        onClose();
-      }).catch(() => {
-        setRunning(false);
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (phase !== 'idle' && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((t) => t - 1);
+        
+        // 4-7-8 breathing pattern
+        const cycleTime = 19;
+        const currentSecond = (60 - timeLeft + 1) % cycleTime;
+        
+        if (currentSecond < 4) setPhase('inhale');
+        else if (currentSecond < 11) setPhase('hold');
+        else setPhase('exhale');
+      }, 1000);
+    } else if (timeLeft === 0 && sessionId) {
+      breathingService.completeSession(sessionId).then(() => {
         onClose();
       });
     }
-  }, [secondsLeft, running, sessionId, onClose, onCompleted]);
+    return () => clearInterval(interval);
+  }, [phase, timeLeft, sessionId, onClose]);
 
-  const start = async () => {
+  const startSession = async () => {
     try {
-      const res = await wellnessService.createBreathingSession();
+      const res = await breathingService.startSession();
       setSessionId(res.id);
-    } catch {
-      setSessionId(null);
-    }
-    setRunning(true);
-  };
-
-  if (!open) return null;
-
-  const getSelected = () => {
-    try {
-      const raw = localStorage.getItem('hb_user_info');
-      const info = raw ? JSON.parse(raw) : {};
-      return info?.petAnimal || 'raccoon';
-    } catch {
-      return 'raccoon';
+      setPhase('inhale');
+    } catch (e) {
+      console.error('Failed to start breathing session');
     }
   };
-  const selected = getSelected();
+
+  const getInstruction = () => {
+    switch (phase) {
+      case 'idle': return 'Ready to relax?';
+      case 'inhale': return 'Breathe in...';
+      case 'hold': return 'Hold...';
+      case 'exhale': return 'Breathe out...';
+    }
+  };
+
+  const getScale = () => {
+    switch (phase) {
+      case 'idle': return 1;
+      case 'inhale': return 1.3;
+      case 'hold': return 1.3;
+      case 'exhale': return 1;
+    }
+  };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-      <div className="login-card" style={{ maxWidth: 600 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ marginTop: 0 }}>Calming Breath</h2>
-          <div style={{ color: 'var(--text-secondary)' }}>{running ? 'Listening' : 'Idle'}</div>
-        </div>
+    <div className="breathing-coach-container">
+      <div className="breathing-header">
+        <button className="back-button" onClick={onClose}>
+          ← Back
+        </button>
+        <h2>Calming Breath</h2>
+        <div style={{ width: 40 }} /> {/* Spacer for centering */}
+      </div>
 
-        <div style={{ display: 'grid', placeItems: 'center', margin: '16px 0 12px' }}>
-          <div style={{
-            width: 280,
-            height: 280,
-            borderRadius: '50%',
-            background: 'radial-gradient(60% 60% at 50% 50%, rgba(124,58,237,0.25), transparent)',
-            display: 'grid',
-            placeItems: 'center',
-            boxShadow: '0 0 40px rgba(124,58,237,0.3) inset'
-          }}>
-            <div style={{ display: 'grid', placeItems: 'center', gap: 12 }}>
-              <div style={{ transform: `scale(${running ? scale : 1})`, transition: 'transform 1s ease-in-out' }}>
-                <PetGraphic animal={selected as any} mood={running ? 'calm' : 'focused'} size={140} />
-              </div>
-              <div style={{ fontSize: 32, fontWeight: 800 }}>{secondsLeft}s</div>
-            </div>
+      <div className="breathing-content">
+        <div className="timer">{timeLeft}s</div>
+        
+        <div className="instruction">{getInstruction()}</div>
+
+        <div className="pet-container">
+          <div 
+            className="breathing-circle"
+            style={{ 
+              transform: `scale(${getScale()})`,
+              transition: phase === 'idle' ? 'none' : 
+                          phase === 'inhale' ? 'transform 4s ease-out' :
+                          phase === 'hold' ? 'none' :
+                          'transform 8s ease-in-out'
+            }}
+          />
+          <div className="pet-wrapper">
+            <PetGraphic 
+              animal={(user?.pet_type as any) || 'raccoon'} 
+              mood={phase === 'idle' ? 'focused' : 'calm'} 
+              size={140} 
+            />
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', marginBottom: 16, fontSize: 18, fontWeight: 700 }}>
-          {running ? phase : 'Press Start'}
-        </div>
-
-        <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-          <div style={{ color: 'var(--text-secondary)' }}>Calmness Level</div>
-          <div style={{ height: 8, background: 'var(--border-color)', borderRadius: 4 }}>
-            <div style={{ width: running ? `${Math.max(0, 100 - secondsLeft)}%` : '0%', height: 8, borderRadius: 4, background: 'linear-gradient(90deg, var(--accent-color), var(--accent-hover))' }} />
-          </div>
-          <div style={{ color: 'var(--accent-color)', fontSize: 12 }}>{running ? 'Rising' : 'Ready'}</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 12 }}>
-          {!running && <button className="login-button" onClick={start}>Start</button>}
-          {running && <button className="login-button" onClick={onClose}>End</button>}
-          {!running && <button className="ghost-cta" onClick={onClose}>Cancel</button>}
-        </div>
+        {phase === 'idle' ? (
+          <button className="start-button" onClick={startSession}>
+            Begin Session
+          </button>
+        ) : (
+          <button className="stop-button" onClick={onClose}>
+            End Early
+          </button>
+        )}
       </div>
     </div>
   );

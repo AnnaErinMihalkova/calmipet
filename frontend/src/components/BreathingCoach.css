@@ -1,0 +1,107 @@
+.breathing-coach-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+}
+
+.breathing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: var(--accent-primary);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.breathing-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+}
+
+.timer {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.instruction {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  height: 36px; /* Keep fixed height to prevent jumping */
+}
+
+.pet-container {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.breathing-circle {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(99, 102, 241, 0.25), transparent);
+  box-shadow: 0 0 40px rgba(99, 102, 241, 0.3) inset;
+  z-index: 1;
+}
+
+.pet-wrapper {
+  position: relative;
+  z-index: 2;
+}
+
+.start-button {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 16px 32px;
+  border-radius: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  margin-top: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.start-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.stop-button {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 16px 32px;
+  border-radius: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: background 0.2s;
+}
+
+.stop-button:hover {
+  background: rgba(239, 68, 68, 0.1);
+}

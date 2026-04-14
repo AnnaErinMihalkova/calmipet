@@ -63,13 +63,10 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup, onAuthSuccess }) => {
       const data = await authService.login({ email: formData.email, password: formData.password });
       
       try {
-        if (data.accessToken) {
-          localStorage.setItem('accessToken', data.accessToken);
+        if (data.token) {
+          localStorage.setItem('calmipet-token', data.token);
         }
-        if (data.refreshToken) {
-          localStorage.setItem('refreshToken', data.refreshToken);
-        }
-        localStorage.setItem('hb_user', JSON.stringify(data.user));
+        localStorage.setItem('hb_user_id', data.user_id.toString());
       } catch {}
       
       setSuccessMessage('Login successful! Redirecting...');
@@ -166,15 +163,6 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup, onAuthSuccess }) => {
           <button type="submit" className="login-button" disabled={isLoading}>
             {isLoading ? 'Logging in...' : 'Log In'}
           </button>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 16, alignItems: 'center' }}>
-            <div style={{ height: 1, background: 'var(--border-color)' }} />
-            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>OR CONTINUE WITH</div>
-            <div style={{ height: 1, background: 'var(--border-color)' }} />
-            <button type="button" className="ghost-cta"></button>
-            <button type="button" className="ghost-cta">G</button>
-            <button type="button" className="ghost-cta">f</button>
-          </div>
         </form>
       </div>
     </div>

@@ -1,3 +1,15 @@
-fastapi
-uvicorn
-
+# requirements.txt — Fixed version 
+# Changes (audit item #24): 
+#   - Added PyJWT (required by new auth_utils.py) 
+#   - Added httpx (required by FastAPI TestClient) 
+#   - Added python-multipart (required for form data endpoints) 
+#   - Added pydantic-settings (used by config.py) 
+#   - Pinned all versions for reproducible builds 
+#   - uvicorn[standard] instead of bare uvicorn 
+ 
+fastapi==0.115.5 
+uvicorn[standard]==0.32.1 
+PyJWT==2.10.1 
+httpx==0.28.1 
+python-multipart==0.0.20 
+pydantic-settings==2.7.0

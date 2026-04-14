@@ -5,9 +5,21 @@ import TrendChart from './TrendChart';
 import PetCard from './PetCard';
 import BreathingCoach from './BreathingCoach';
 import CircularLogo from './CircularLogo';
-import { startAutoSendLoop } from '../services/bracelet-simulator';
-import { fastapiService, backendMode } from '../services/api';
-import { simulatorMode } from '../services/bracelet-simulator';
+import { startSimulator } from '../services/bracelet-simulator';
+
+// Helper function to generate fallback readings (#11)
+const generateFallbackReadings = (): Reading[] => {
+  const now = Date.now();
+  const count = 12;
+  const intervalMs = 5 * 60 * 1000;
+  const baseHr = 78;
+  const baseHrv = 40;
+  return Array.from({ length: count }, (_, i) => ({
+    heart_rate: Math.max(60, Math.min(100, Math.round(baseHr + (Math.random() - 0.5) * 12))),
+    stress_level: Math.max(20, Math.min(80, Math.round(baseHrv + (Math.random() - 0.5) * 16))),
+    timestamp: new Date(now - (count - i) * intervalMs).toISOString(),
+  })) as Reading[];
+};
 
 const Dashboard: React.FC = () => {
   const [readings, setReadings] = React.useState<Reading[]>([]);
@@ -16,12 +28,14 @@ const Dashboard: React.FC = () => {
   const [coachOpen, setCoachOpen] = React.useState<boolean>(false);
   const [username, setUsername] = React.useState<string>('');
   const [authed, setAuthed] = React.useState<boolean>(false);
+
   const handleLogout = async () => {
     try { await authService.logout(); } catch {}
     try { localStorage.removeItem('hb_onboarded'); } catch {}
     window.location.hash = 'home';
     window.location.reload();
   };
+
   const handleDelete = async () => {
     if (!window.confirm('Delete your account? This cannot be undone.')) return;
     try { await authService.deleteAccount(); } catch {}
@@ -33,35 +47,15 @@ const Dashboard: React.FC = () => {
   const fetchReadings = async () => {
     try {
       setLoading(true);
-      const data = await readingService.getAllReadings();
+      const data = await readingService.getReadings();
       if (!Array.isArray(data) || data.length === 0) {
-        const now = Date.now();
-        const count = 12;
-        const intervalMs = 5 * 60 * 1000;
-        const baseHr = 78;
-        const baseHrv = 40;
-        const fallback = Array.from({ length: count }, (_, i) => ({
-          heart_rate: Math.max(60, Math.min(100, Math.round(baseHr + (Math.random() - 0.5) * 12))),
-          stress_level: Math.max(20, Math.min(80, Math.round(baseHrv + (Math.random() - 0.5) * 16))),
-          timestamp: new Date(now - (count - i) * intervalMs).toISOString(),
-        })) as Reading[];
-        setReadings(fallback);
+        setReadings(generateFallbackReadings());
       } else {
         setReadings(data);
       }
       setError(null);
     } catch (e) {
-      const now = Date.now();
-      const count = 12;
-      const intervalMs = 5 * 60 * 1000;
-      const baseHr = 78;
-      const baseHrv = 40;
-      const fallback = Array.from({ length: count }, (_, i) => ({
-        heart_rate: Math.max(60, Math.min(100, Math.round(baseHr + (Math.random() - 0.5) * 12))),
-        stress_level: Math.max(20, Math.min(80, Math.round(baseHrv + (Math.random() - 0.5) * 16))),
-        timestamp: new Date(now - (count - i) * intervalMs).toISOString(),
-      })) as Reading[];
-      setReadings(fallback);
+      setReadings(generateFallbackReadings());
       setError(null);
     } finally {
       setLoading(false);
@@ -69,7 +63,7 @@ const Dashboard: React.FC = () => {
   };
 
   React.useEffect(() => {
-    authService.me().then((u) => {
+    authService.getMe().then((u) => {
       setUsername(u.username);
       setAuthed(true);
       fetchReadings();
@@ -78,88 +72,32 @@ const Dashboard: React.FC = () => {
       fetchReadings();
     });
   }, []);
+
   React.useEffect(() => {
     if (!authed) return;
-    const loop = startAutoSendLoop(6, true, () => { fetchReadings(); }, () => { setError('Failed to auto-send reading'); });
+    startSimulator(6000);
+    const loop = setInterval(() => { fetchReadings(); }, 6000);
     return () => { clearInterval(loop); };
-  }, [authed]);
-  React.useEffect(() => {
-    if (authed) return;
-    const id = setInterval(() => {
-      const now = new Date().toISOString();
-      const hr = Math.max(60, Math.min(100, Math.round(78 + (Math.random() - 0.5) * 12)));
-      const hrv = Math.max(20, Math.min(80, Math.round(40 + (Math.random() - 0.5) * 16)));
-      setReadings((r) => [...r.slice(-19), { heart_rate: hr, stress_level: hrv, timestamp: now } as Reading]);
-    }, 6000);
-    return () => clearInterval(id);
   }, [authed]);
 
   const addTestReading = async () => {
     try {
-      const logMode = (localStorage.getItem('log_mode') === 'fastapi_only');
-      if (backendMode.isFastApi() || logMode) {
-        await fastapiService.sendData({
-          heart_rate: Math.floor(Math.random() * 40) + 60,
-          spo2: Math.floor(95 + Math.random() * 5),
-        });
-      }
-      if (!logMode) {
-        const created = await readingService.createReading({
-          heart_rate: Math.floor(Math.random() * 40) + 60,
-          stress_level: Math.floor(Math.random() * 50) + 20,
-        });
-        setReadings((r) => [...r, created]);
-      }
+      const created = await readingService.createReading({
+        heart_rate: Math.floor(Math.random() * 40) + 60,
+        stress_level: Math.floor(Math.random() * 50) + 20,
+      });
+      // Optimistic update
+      setReadings((r) => [...r, { ...created, id: Date.now(), hrv: 0, heart_rate: 60, stress_level: 20, timestamp: new Date().toISOString() }]);
+      fetchReadings();
     } catch (e) {
       setError('Failed to create reading');
     }
   };
 
-  const [analysis, setAnalysis] = React.useState<{ score: number; label: string; baseline_hr: number } | null>(null);
-  const runAnalysis = async () => {
-    if (!heartRate) {
-      setError('No heart rate available for analysis');
-      return;
-    }
-    try {
-      const result = await fastapiService.analyze({ heart_rate: heartRate, spo2: Math.floor(95 + Math.random() * 5) });
-      setAnalysis(result);
-      setError(null);
-    } catch {
-      setError('Failed to analyze');
-    }
-  };
-  const [mode, setMode] = React.useState<'django' | 'fastapi'>(backendMode.get());
-  const toggleMode = () => {
-    const next = mode === 'fastapi' ? 'django' : 'fastapi';
-    backendMode.set(next);
-    setMode(next);
-  };
-  const [simMode, setSimMode] = React.useState<'fastapi_only' | 'toggle_backend'>(simulatorMode.get());
-  const toggleSimMode = () => {
-    const next = simMode === 'fastapi_only' ? 'toggle_backend' : 'fastapi_only';
-    simulatorMode.set(next);
-    setSimMode(next);
-  };
-  const [fastapiReadings, setFastapiReadings] = React.useState<Reading[]>([]);
-  const loadFastApiData = async () => {
-    try {
-      const rows = await fastapiService.getData();
-      const mapped = rows.map((row: any[]) => ({ heart_rate: Number(row[1]) } as Reading));
-      setFastapiReadings(mapped);
-    } catch {
-      setError('Failed to load FastAPI data');
-    }
-  };
-  React.useEffect(() => {
-    const id = setInterval(() => { loadFastApiData(); }, 8000);
-    loadFastApiData();
-    return () => clearInterval(id);
-  }, []);
-
   const last = readings[readings.length - 1];
   const heartRate = last?.heart_rate ?? null;
   const hrv = last?.stress_level ?? null;
+
   const stressLabel = hrv == null ? 'Unknown' : hrv < 30 ? 'High' : hrv < 50 ? 'Medium' : 'Low';
   const coherenceLabel = hrv == null ? 'Unknown' : hrv >= 60 ? 'High' : hrv >= 40 ? 'Medium' : 'Low';
 
@@ -202,97 +140,212 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="ghost-cta" onClick={handleLogout}>Log Out</button>
-        <button className="ghost-cta" onClick={handleDelete} style={{ color: 'var(--accent-color)' }}>Delete Account</button>
-      </div>
-
-      <div style={{ display: 'grid', placeItems: 'center', marginBottom: 12 }}>
-        <CircularLogo size={220} />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 16 }}>
-          <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 6 }}>Heart Rate</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <div style={{ fontSize: 28, fontWeight: 800 }}>{heartRate ?? '--'}</div>
-            <div style={{ color: 'var(--text-secondary)' }}>BPM</div>
+      <div style={{
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 18,
+        padding: 20,
+        boxShadow: 'var(--shadow-lg)',
+        marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ flex: 1, borderRight: '1px solid var(--border-color)', paddingRight: 16 }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4 }}>Heart Rate</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent-primary)' }}>
+              {heartRate ? `${heartRate}` : '--'}
+              <span style={{ fontSize: 16, color: 'var(--text-secondary)', fontWeight: 600, marginLeft: 4 }}>BPM</span>
+            </div>
           </div>
-        </div>
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 16 }}>
-          <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 6 }}>Stress</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>{stressLabel}</div>
-            <div style={{ height: 6, flex: 1, background: 'var(--border-color)', borderRadius: 3 }}>
-              <div style={{ width: hrv == null ? '0%' : hrv < 30 ? '80%' : hrv < 50 ? '50%' : '20%', height: 6, background: 'var(--accent-color)', borderRadius: 3 }} />
+          <div style={{ flex: 1, paddingLeft: 16 }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4 }}>HRV (Stress)</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent-secondary)' }}>
+              {hrv ? `${Math.round(hrv)}` : '--'}
+              <span style={{ fontSize: 16, color: 'var(--text-secondary)', fontWeight: 600, marginLeft: 4 }}>ms</span>
             </div>
           </div>
         </div>
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 16 }}>
-          <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 6 }}>Coherence</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>{coherenceLabel}</div>
-            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--accent-color)' }} />
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <div style={{
+            background: 'var(--bg-tertiary)', padding: '6px 12px', borderRadius: 12, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)'
+          }}>
+            Status: <span style={{ color: 'var(--text-primary)' }}>{stressLabel} Stress</span>
+          </div>
+          <div style={{
+            background: 'var(--bg-tertiary)', padding: '6px 12px', borderRadius: 12, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)'
+          }}>
+            Coherence: <span style={{ color: 'var(--text-primary)' }}>{coherenceLabel}</span>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
-        <button className="primary-cta" onClick={() => setCoachOpen(true)}>Start Breathing</button>
-        <button className="ghost-cta" onClick={addTestReading}>Log Mood</button>
-        <button className="ghost-cta" onClick={runAnalysis}>Analyze</button>
+      <PetCard hrv={hrv} />
+
+      <div style={{
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 18,
+        padding: 20,
+        boxShadow: 'var(--shadow-lg)',
+        marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>HRV Trend</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>Last 20 readings</div>
+        </div>
+        <div style={{ height: 140, margin: '0 -10px' }}>
+          <TrendChart readings={readings.slice(-20)} />
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-        <div role="button" onClick={() => { window.location.hash = 'readings'; }} style={{ cursor: 'pointer' }}>
-          <PetCard />
-        </div>
-        <TrendChart readings={readings} smooth={true} window={5} onClick={() => setDailyOpen(true)} />
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+        <button
+          onClick={() => setCoachOpen(true)}
+          style={{
+            flex: 1,
+            background: 'var(--accent-primary)',
+            color: 'white',
+            border: 'none',
+            padding: 16,
+            borderRadius: 16,
+            fontSize: 16,
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+          }}
+        >
+          Breathe
+        </button>
+        <button
+          onClick={() => setDailyOpen(true)}
+          style={{
+            flex: 1,
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            padding: 16,
+            borderRadius: 16,
+            fontSize: 16,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          Daily Summary
+        </button>
       </div>
-      
+
+      <div style={{
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 18,
+        padding: 20,
+        boxShadow: 'var(--shadow-lg)',
+        marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Settings & Debug</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button
+            onClick={addTestReading}
+            style={{
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-color)',
+              padding: '12px 16px',
+              borderRadius: 12,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Add Test Reading
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-color)',
+              padding: '12px 16px',
+              borderRadius: 12,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Log Out
+          </button>
+          <button
+            onClick={handleDelete}
+            style={{
+              background: 'transparent',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              padding: '12px 16px',
+              borderRadius: 12,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Delete Account
+          </button>
+        </div>
+      </div>
+
+      {coachOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'var(--bg-primary)',
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          <BreathingCoach onClose={() => setCoachOpen(false)} />
+        </div>
+      )}
+
       {dailyOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 3000 }}>
-          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 20, width: 'min(640px, 92vw)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>Today’s Trend</div>
-              <button className="ghost-cta" onClick={() => setDailyOpen(false)} aria-label="Close">Close</button>
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <TrendChart readings={todayReadings.length ? todayReadings : readings} smooth={true} window={5} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginTop: 12 }}>
-              <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 12 }}>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>Avg BPM</div>
-                <div style={{ fontSize: 20, fontWeight: 800 }}>{dayBpmAvg ?? '--'}</div>
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'var(--bg-primary)',
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 20,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div style={{ fontSize: 24, fontWeight: 800 }}>Daily Summary</div>
+            <button onClick={() => setDailyOpen(false)} style={{
+              background: 'var(--bg-secondary)', border: 'none', width: 40, height: 40, borderRadius: 20, color: 'var(--text-primary)', fontSize: 20, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>×</button>
+          </div>
+
+          <div style={{
+            background: 'var(--bg-secondary)', borderRadius: 18, padding: 20, marginBottom: 16, border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>Today's Overview</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Readings Today</span>
+                <span style={{ fontWeight: 700 }}>{todayReadings.length}</span>
               </div>
-              <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 12 }}>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>Min BPM</div>
-                <div style={{ fontSize: 20, fontWeight: 800 }}>{dayBpmMin ?? '--'}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Avg Heart Rate</span>
+                <span style={{ fontWeight: 700 }}>{dayBpmAvg ? `${dayBpmAvg} BPM` : '--'}</span>
               </div>
-              <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 12 }}>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>Max BPM</div>
-                <div style={{ fontSize: 20, fontWeight: 800 }}>{dayBpmMax ?? '--'}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Heart Rate Range</span>
+                <span style={{ fontWeight: 700 }}>{dayBpmMin && dayBpmMax ? `${dayBpmMin} - ${dayBpmMax}` : '--'}</span>
               </div>
-              <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 12 }}>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>Day Mood</div>
-                <div style={{ fontSize: 20, fontWeight: 800 }}>{dayMood}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Average Mood</span>
+                <span style={{ fontWeight: 700 }}>{dayMood} Stress</span>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      <div style={{ marginTop: 16 }}>
-        {loading
-          ? 'Loading readings…'
-          : error
-          ? error
-          : analysis
-          ? `Analysis: ${analysis.label.toUpperCase()} (score ${analysis.score}, baseline ${analysis.baseline_hr})`
-          : 'Ready to log new readings.'}
-      </div>
-
-      <BreathingCoach open={coachOpen} onClose={() => setCoachOpen(false)} onCompleted={() => fetchReadings()} />
     </div>
   );
 };

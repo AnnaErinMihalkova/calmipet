@@ -1,88 +1,77 @@
-import axios from 'axios';
-const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || '/api');
-
-const authApi = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000, // 10 second timeout
-});
-
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  date_joined?: string;
-}
-
-export interface SignUpData {
-  username: string;
-  email: string;
-  password: string;
-}
-
-export interface LoginData {
-  email: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  user: User;
-  accessToken?: string;
-  refreshToken?: string;
-  message?: string;
-}
-
-// Email validation function
+// frontend/src/services/auth.ts — Fixed version 
+// Changes (audit item #19): 
+//   - Was creating its own `authApi` Axios instance with base '/api' 
+//     (no trailing slash), while api.ts used '/api/' (trailing slash). 
+//     Axios joins relative paths differently depending on trailing slash, 
+//     causing subtly wrong URLs. 
+//   - Now reuses the single shared `apiClient` from api.ts (#19). 
+ 
+import { apiClient } from './api'; 
+import { clearCachedUser } from './bracelet-simulator';
+ 
+export interface RegisterPayload { 
+  email: string; 
+  username: string; 
+  password: string; 
+} 
+ 
+export interface LoginPayload { 
+  email: string; 
+  password: string; 
+} 
+ 
+export interface AuthResponse { 
+  token: string; 
+  user_id: number; 
+} 
+ 
+export interface UserProfile { 
+  id: number; 
+  email: string; 
+  username: string; 
+  is_admin: boolean; 
+  pet_type: string; 
+} 
+ 
 export const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
-export const authService = {
-  signUp: async (data: SignUpData): Promise<AuthResponse> => {
-    if (!validateEmail(data.email)) {
-      throw new Error('Please enter a valid email address');
-    }
-    const response = await authApi.post<AuthResponse>('/auth/signup/', data);
-    return response.data;
-  },
+export const authService = { 
+  register: async (payload: RegisterPayload): Promise<AuthResponse> => { 
+    const { data } = await apiClient.post<AuthResponse>('/auth/register/', payload); 
+    localStorage.setItem('calmipet-token', data.token); 
+    return data; 
+  }, 
+ 
+  login: async (payload: LoginPayload): Promise<AuthResponse> => { 
+    const { data } = await apiClient.post<AuthResponse>('/auth/login/', payload); 
+    localStorage.setItem('calmipet-token', data.token); 
+    return data; 
+  }, 
+ 
+  logout: (): void => { 
+    localStorage.removeItem('calmipet-token'); 
+    clearCachedUser();
+  }, 
+ 
+  getMe: async (): Promise<UserProfile> => { 
+    const { data } = await apiClient.get<UserProfile>('/auth/me/'); 
+    return data; 
+  }, 
+ 
+  isAuthenticated: (): boolean => { 
+    return Boolean(localStorage.getItem('calmipet-token')); 
+  }, 
+ 
+  updatePet: async (petType: string): Promise<{ pet_type: string }> => { 
+    const { data } = await apiClient.patch('/users/pet/', null, { 
+      params: { pet_type: petType }, 
+    }); 
+    return data; 
+  }, 
 
-  login: async (data: LoginData): Promise<AuthResponse> => {
-    if (!validateEmail(data.email)) {
-      throw new Error('Please enter a valid email address');
-    }
-    const response = await authApi.post<AuthResponse>('/auth/login/', data);
-    return response.data;
-  },
-
-  me: async (): Promise<User> => {
-    const token = localStorage.getItem('accessToken') || '';
-    const cfg: any = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-    const response = await authApi.get<User>('/auth/me/', cfg); 
-    return response.data;
-  },
-
-  logout: async (): Promise<void> => {
-    try { await authApi.post('/auth/logout/'); } catch {}
-    try { 
-      localStorage.removeItem('accessToken'); 
-      localStorage.removeItem('refreshToken'); 
-      localStorage.removeItem('hb_user'); 
-      localStorage.removeItem('hb_user_info'); 
-    } catch {}
-  },
-
-  updateAccount: async (data: Partial<User>): Promise<User> => {
-    const response = await authApi.post<User>('/auth/update/', data);
-    return response.data;
-  },
   deleteAccount: async (): Promise<void> => {
-    try { await authApi.delete('/auth/delete/'); } catch {}
-    try { localStorage.clear(); } catch {}
+    await apiClient.delete('/auth/delete/');
   },
 };
-
-export default authService;
