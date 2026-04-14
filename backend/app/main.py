@@ -1,11 +1,3 @@
-""" 
- backend/app/main.py — Fixed version 
- Changes (audit items #3, #4, #23): 
-   - /api/auth/promote/ endpoint removed — any user could self-promote to admin (#4) 
-   - CORS origins come from settings (no wildcard) (#3) 
-   - Auth boilerplate replaced by the get_current_user_id Depends from sensor.py (#23) 
- """ 
- 
 from fastapi import FastAPI, HTTPException, Depends 
 from fastapi.middleware.cors import CORSMiddleware 
 from pydantic import BaseModel 

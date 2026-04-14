@@ -1,11 +1,3 @@
-// frontend/src/services/auth.ts — Fixed version 
-// Changes (audit item #19): 
-//   - Was creating its own `authApi` Axios instance with base '/api' 
-//     (no trailing slash), while api.ts used '/api/' (trailing slash). 
-//     Axios joins relative paths differently depending on trailing slash, 
-//     causing subtly wrong URLs. 
-//   - Now reuses the single shared `apiClient` from api.ts (#19). 
- 
 import { apiClient } from './api'; 
 import { clearCachedUser } from './bracelet-simulator';
  

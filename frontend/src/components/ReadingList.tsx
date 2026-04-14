@@ -101,9 +101,17 @@ const ReadingList: React.FC = () => {
               <p className="reading-item"><strong>Heart Rate:</strong> {reading.heart_rate} BPM</p>
               <p className="reading-item"><strong>HRV:</strong> {reading.stress_level != null ? reading.stress_level.toFixed(1) : 'N/A'} ms</p>
               <p className="reading-item"><strong>Mood:</strong> {
-                (reading.stress_level ?? 0) < 30 ? '😫 Stressed' :
-                (reading.stress_level ?? 0) < 50 ? '😐 Moderate' :
-                '😌 Calm'
+                (() => {
+                  const hr = reading.heart_rate || 70;
+                  const hrvVal = reading.stress_level || 50;
+                  const hrFactor = Math.max(0, Math.min(1, (hr - 60) / 40.0));
+                  const hrvFactor = Math.max(0, Math.min(1, (80 - hrvVal) / 60.0));
+                  const stressScore = Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
+                  
+                  if (stressScore > 65) return '😫 Stressed';
+                  if (stressScore > 35) return '😐 Moderate';
+                  return '😌 Calm';
+                })()
               }</p>
             </div>
           ))}

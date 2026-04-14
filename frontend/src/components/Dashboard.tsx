@@ -98,7 +98,31 @@ const Dashboard: React.FC = () => {
   const heartRate = last?.heart_rate ?? null;
   const hrv = last?.stress_level ?? null;
 
-  const stressLabel = hrv == null ? 'Unknown' : hrv < 30 ? 'High' : hrv < 50 ? 'Medium' : 'Low';
+  // Improved stress algorithm taking both HR and HRV into account
+  const getStressInfo = (hr: number | null, hrvVal: number | null) => {
+    if (hr === null || hrvVal === null) return { label: 'Unknown', score: 50 };
+    
+    // Calculate an accurate 0-100 stress score based on both HR and HRV
+    // 1. Normalize HR (Resting range 60-100)
+    // Higher HR = higher stress component
+    const hrFactor = Math.max(0, Math.min(1, (hr - 60) / 40.0));
+    
+    // 2. Normalize HRV (Typical RMSSD range 20-80)
+    // Lower HRV = higher stress component
+    const hrvFactor = Math.max(0, Math.min(1, (80 - hrvVal) / 60.0));
+    
+    // 3. Weighted combination (HRV is generally a stronger indicator of stress than raw HR)
+    const stressScore = Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
+    
+    let label = 'Low';
+    if (stressScore > 65) label = 'High';
+    else if (stressScore > 35) label = 'Medium';
+    
+    return { label, score: stressScore };
+  };
+
+  const currentStress = getStressInfo(heartRate, hrv);
+  const stressLabel = currentStress.label;
   const coherenceLabel = hrv == null ? 'Unknown' : hrv >= 60 ? 'High' : hrv >= 40 ? 'Medium' : 'Low';
 
   const [dailyOpen, setDailyOpen] = React.useState<boolean>(false);
@@ -178,7 +202,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <PetCard hrv={hrv} />
+      <PetCard hrv={hrv} heartRate={heartRate} />
 
       <div style={{
         background: 'var(--bg-secondary)',

@@ -5,9 +5,10 @@ import PetGraphic from './PetGraphic';
 
 interface PetCardProps {
   hrv: number | null;
+  heartRate: number | null;
 }
 
-const PetCard: React.FC<PetCardProps> = ({ hrv }) => {
+const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate }) => {
   const [user, setUser] = React.useState<UserProfile | null>(null);
   const [streakData, setStreakData] = React.useState<any>(null);
 
@@ -17,13 +18,23 @@ const PetCard: React.FC<PetCardProps> = ({ hrv }) => {
   }, []);
 
   const animal = user?.pet_type || 'raccoon';
-  const isStressed = hrv !== null && hrv < 30;
+  
+  // Improved algorithm taking both HR and HRV into account
+  let stressScore = 50;
+  if (hrv !== null && heartRate !== null) {
+    const hrFactor = Math.max(0, Math.min(1, (heartRate - 60) / 40.0));
+    const hrvFactor = Math.max(0, Math.min(1, (80 - hrv) / 60.0));
+    stressScore = Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
+  } else if (hrv !== null) {
+    // Fallback if only HRV is provided (e.g. from tests)
+    stressScore = Math.max(0, Math.min(100, Math.round(((80 - hrv) / 60) * 100)));
+  }
+
+  const isStressed = stressScore > 65;
   const mood = isStressed ? 'stressed' : 'calm';
 
-  // Derive a 0-100 calmness score from HRV (roughly 20-80 ms mapped to 0-100%)
-  const calmnessScore = hrv === null 
-    ? 50 
-    : Math.max(0, Math.min(100, Math.round(((hrv - 20) / 60) * 100)));
+  // Calmness is the inverse of stress
+  const calmnessScore = 100 - stressScore;
 
   return (
     <div style={{

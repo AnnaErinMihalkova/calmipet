@@ -1,10 +1,3 @@
-// frontend/src/services/api.ts — Fixed version 
-// Changes (audit items #19, #20): 
-//   - Single shared Axios instance with a consistent base URL (#19) 
-//     (was two instances: '/api/' with trailing slash vs '/api' without) 
-//   - Methods that have no backend implementation are clearly marked and 
-//     will throw a descriptive error instead of silently returning 404 (#20) 
- 
 import axios, { AxiosInstance } from 'axios'; 
  
 // --------------------------------------------------------------------------- 

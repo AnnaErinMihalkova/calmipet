@@ -1,16 +1,3 @@
-""" 
- backend/app/routers/sensor.py — Fixed version 
- Changes (audit items #2, #5, #8, #9, #17, #23): 
-   - Auth parsing extracted into a FastAPI Depends dependency — replaces 8 
-     copy-pasted blocks (#23) 
-   - Naive/aware datetime comparison fixed: use timezone.utc consistently (#8) 
-   - Missing conn.commit() added for gamification insert (#9) 
-   - Duplicate return statement removed (#5) 
-   - /api/data and /api/analyze now require authentication (#17) 
-   - Bare except: replaced with specific exception types (#2) 
-   - All connections use the context-manager get_connection() to avoid leaks 
- """ 
- 
 from datetime import datetime, timedelta, timezone 
 from fastapi import APIRouter, Depends, HTTPException, Request 
 from pydantic import BaseModel 
@@ -135,15 +122,39 @@ def analyze(
     payload: DataPayload, 
     user_id: int = Depends(get_current_user_id),   # now requires auth (#17) 
 ): 
-    """Simple rule-based stress analysis.""" 
-    hrv = payload.hrv or payload.heart_rate 
-    if hrv < 30: 
+    """Improved combined HR/HRV stress analysis.""" 
+    hrv = payload.hrv or payload.stress_level or payload.heart_rate 
+    hr = payload.heart_rate
+
+    # Calculate an accurate 0-100 stress score based on both HR and HRV
+    # High HR (e.g. > 85) increases stress
+    # Low HRV (e.g. < 30) increases stress
+    
+    # 1. Normalize HR (Resting range 60-100)
+    # Higher HR = higher stress component
+    hr_factor = max(0.0, min(1.0, (hr - 60) / 40.0))
+    
+    # 2. Normalize HRV (Typical RMSSD range 20-80)
+    # Lower HRV = higher stress component
+    hrv_factor = max(0.0, min(1.0, (80 - hrv) / 60.0))
+    
+    # 3. Weighted combination (HRV is generally a stronger indicator of stress than raw HR)
+    stress_score = (0.4 * hr_factor + 0.6 * hrv_factor) * 100
+
+    if stress_score > 65: 
         label = "stressed" 
-    elif hrv < 50: 
+    elif stress_score > 35: 
         label = "moderate" 
     else: 
         label = "calm" 
-    return {"user_id": user_id, "stress_label": label, "hrv": hrv} 
+        
+    return {
+        "user_id": user_id, 
+        "stress_label": label, 
+        "stress_score": round(stress_score),
+        "hrv": hrv,
+        "hr": hr
+    } 
  
  
 @router.post("/api/breathing/start") 

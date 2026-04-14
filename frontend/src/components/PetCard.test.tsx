@@ -20,31 +20,33 @@ jest.mock('./PetGraphic', () => (props: any) => <div data-testid="pet-graphic">{
 
 describe('PetCard', () => {
   test('renders pet info and streak correctly', async () => {
-    render(<PetCard hrv={40} />);
+    // HR 60 -> hrFactor = 0
+    // HRV 80 -> hrvFactor = 0
+    // stressScore = 0 -> Calmness = 100
+    render(<PetCard hrv={80} heartRate={60} />);
 
     // Check title
     expect(screen.getByText('Your Companion')).toBeInTheDocument();
 
     // Check if the mock services have loaded data into the UI
     await waitFor(() => {
-      // Level should be Math.floor(250 / 100) + 1 = 3
       expect(screen.getByText('Lvl 3')).toBeInTheDocument();
       expect(screen.getByText('🔥 5 Day Streak')).toBeInTheDocument();
-      // HRV = 40. Calmness = (40 - 20)/60 * 100 = 33%
-      expect(screen.getByText('33%')).toBeInTheDocument();
+      expect(screen.getByText('100%')).toBeInTheDocument();
     });
 
-    // Check if PetGraphic was rendered with correct props (hrv=40 means not stressed, so calm)
     expect(screen.getByTestId('pet-graphic')).toHaveTextContent('fox-calm');
   });
 
-  test('renders stressed mood when hrv is low', async () => {
-    render(<PetCard hrv={25} />);
+  test('renders stressed mood when hr is high and hrv is low', async () => {
+    // HR 100 -> hrFactor = 1
+    // HRV 20 -> hrvFactor = 1
+    // stressScore = 100 -> Calmness = 0
+    render(<PetCard hrv={20} heartRate={100} />);
     
     await waitFor(() => {
       expect(screen.getByTestId('pet-graphic')).toHaveTextContent('fox-stressed');
-      // HRV = 25. Calmness = (25 - 20)/60 * 100 = 8%
-      expect(screen.getByText('8%')).toBeInTheDocument();
+      expect(screen.getByText('0%')).toBeInTheDocument();
     });
   });
 });

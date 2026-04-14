@@ -13,9 +13,9 @@ jest.mock('../services/auth', () => ({
 jest.mock('../services/api', () => ({
   readingService: {
     getReadings: jest.fn().mockResolvedValue([
-      { id: 1, heart_rate: 65, stress_level: 25, timestamp: '2024-01-01T12:00:00Z' },
-      { id: 2, heart_rate: 70, stress_level: 40, timestamp: '2024-01-01T12:05:00Z' },
-      { id: 3, heart_rate: 80, stress_level: 60, timestamp: '2024-01-01T12:10:00Z' }
+      { id: 1, heart_rate: 60, stress_level: 80, timestamp: '2024-01-01T12:00:00Z' }, // Calm
+      { id: 2, heart_rate: 80, stress_level: 50, timestamp: '2024-01-01T12:05:00Z' }, // Moderate
+      { id: 3, heart_rate: 100, stress_level: 20, timestamp: '2024-01-01T12:10:00Z' } // Stressed
     ]),
     createReading: jest.fn().mockResolvedValue({ status: 'ok' }),
     exportCsv: jest.fn().mockResolvedValue(new Blob(['mock csv'], { type: 'text/csv' })),
@@ -42,9 +42,9 @@ describe('ReadingList', () => {
     expect(screen.getByText('😐 Moderate')).toBeInTheDocument();
     expect(screen.getByText('😌 Calm')).toBeInTheDocument();
 
-    expect(screen.getByText('65 BPM')).toBeInTheDocument();
-    expect(screen.getByText('70 BPM')).toBeInTheDocument();
+    expect(screen.getByText('60 BPM')).toBeInTheDocument();
     expect(screen.getByText('80 BPM')).toBeInTheDocument();
+    expect(screen.getByText('100 BPM')).toBeInTheDocument();
   });
 
   test('handles auth error', async () => {

@@ -1,11 +1,3 @@
-// frontend/src/services/bracelet-simulator.ts — Fixed version 
-// Changes (audit item #26): 
-//   - Module-level `cachedUserId` could hold a stale user's ID after logout, 
-//     causing readings to be attributed to the wrong user. 
-//   - Added clearCachedUser() which must be called on logout. 
-//   - Alternatively, the user ID is now re-derived from the token on each 
-//     interval tick so a stale cache cannot survive more than one interval. 
- 
 import { readingService } from './api'; 
 import { authService } from './auth'; 
  

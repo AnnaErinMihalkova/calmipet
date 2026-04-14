@@ -1,10 +1,3 @@
-""" 
-auth_utils.py — Fixed version 
-Changes (audit items #1, #2): 
-  - Token is now a signed JWT (PyJWT) with expiry instead of a plain "uid:N" string 
-  - Bare except: replaced with specific exception types 
-""" 
- 
 import os 
 import hashlib 
 import secrets 

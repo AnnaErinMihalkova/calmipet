@@ -1,12 +1,3 @@
-""" 
-config.py — Fixed version 
-Changes (audit item #3): 
-  - Removed "*" from CORS_ORIGINS — wildcard with allow_credentials=True is 
-    a CORS misconfiguration and modern browsers refuse it outright. 
-  - List explicit allowed origins; extend via the CORS_ORIGINS env var 
-    (comma-separated) for staging/production. 
-""" 
- 
 import os 
 from pydantic_settings import BaseSettings 
  
