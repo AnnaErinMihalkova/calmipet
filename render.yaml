@@ -1,0 +1,30 @@
+services:
+  # Backend FastAPI Service
+  - type: web
+    name: calmipet-backend
+    runtime: docker
+    # Render will look for the Dockerfile inside this directory
+    rootDir: backend
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./data/calmipet.db
+      - key: CALMIPET_SKIP_RATE_LIMIT
+        value: "1"
+    disk:
+      name: calmipet-data
+      mountPath: /app/data
+      sizeGB: 1
+
+  # Frontend React Static Site
+  - type: static
+    name: calmipet-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishDir: build
+    envVars:
+      - key: REACT_APP_API_BASE_URL
+        # This will be your backend URL (e.g., https://calmipet-backend.onrender.com/api/)
+        # You should update this after deploying the backend.
+        value: https://calmipet-backend.onrender.com/api/
