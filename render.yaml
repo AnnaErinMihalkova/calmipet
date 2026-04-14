@@ -3,6 +3,7 @@ services:
   - type: web
     name: calmipet-backend
     runtime: docker
+    plan: free
     # Render will look for the Dockerfile inside this directory
     rootDir: backend
     dockerfilePath: Dockerfile
@@ -11,15 +12,14 @@ services:
         value: sqlite:///./data/calmipet.db
       - key: CALMIPET_SKIP_RATE_LIMIT
         value: "1"
-    disk:
-      name: calmipet-data
-      mountPath: /app/data
-      sizeGB: 1
+    # Note: SQLite data will be lost on every restart/deploy on the free tier.
+    # To persist data, a paid plan with a persistent disk is required.
 
   # Frontend React Static Site
   - type: web
     name: calmipet-frontend
     runtime: static
+    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: build
