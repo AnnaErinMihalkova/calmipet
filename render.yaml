@@ -17,12 +17,12 @@ services:
       sizeGB: 1
 
   # Frontend React Static Site
-  - type: static
+  - type: web
     name: calmipet-frontend
-    runtime: node
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishDir: build
+    staticPublishPath: build
     envVars:
       - key: REACT_APP_API_BASE_URL
         # This will be your backend URL (e.g., https://calmipet-backend.onrender.com/api/)
