@@ -8,6 +8,64 @@ interface PetCardProps {
   heartRate: number | null;
 }
 
+const getPetTheme = (animal: string, isStressed: boolean) => {
+  if (isStressed) {
+    return {
+      bgGradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(220, 38, 38, 0.15) 100%)',
+      glowColor: 'rgba(239, 68, 68, 0.25)',
+      accent: '#ef4444',
+      border: 'rgba(239, 68, 68, 0.3)',
+      titleColor: '#f87171'
+    };
+  }
+
+  switch (animal) {
+    case 'cat':
+      return {
+        bgGradient: 'linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(219, 39, 119, 0.15) 100%)', // Pink
+        glowColor: 'rgba(236, 72, 153, 0.25)',
+        accent: '#ec4899',
+        border: 'rgba(236, 72, 153, 0.3)',
+        titleColor: '#f472b6'
+      };
+    case 'fox':
+      return {
+        bgGradient: 'linear-gradient(135deg, rgba(249, 115, 22, 0.05) 0%, rgba(234, 88, 12, 0.15) 100%)', // Orange
+        glowColor: 'rgba(249, 115, 22, 0.25)',
+        accent: '#f97316',
+        border: 'rgba(249, 115, 22, 0.3)',
+        titleColor: '#fb923c'
+      };
+    case 'owl':
+      return {
+        bgGradient: 'linear-gradient(135deg, rgba(14, 165, 233, 0.05) 0%, rgba(2, 132, 199, 0.15) 100%)', // Cyan
+        glowColor: 'rgba(14, 165, 233, 0.25)',
+        accent: '#0ea5e9',
+        border: 'rgba(14, 165, 233, 0.3)',
+        titleColor: '#38bdf8'
+      };
+    case 'raccoon':
+    default:
+      return {
+        bgGradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(79, 70, 229, 0.15) 100%)', // Indigo
+        glowColor: 'rgba(99, 102, 241, 0.25)',
+        accent: '#6366f1',
+        border: 'rgba(99, 102, 241, 0.3)',
+        titleColor: '#818cf8'
+      };
+  }
+};
+
+const getPetTitle = (animal: string) => {
+  switch (animal) {
+    case 'cat': return 'Your Feline Friend';
+    case 'fox': return 'Your Cunning Companion';
+    case 'owl': return 'Your Wise Guardian';
+    case 'raccoon':
+    default: return 'Your Masked Buddy';
+  }
+};
+
 const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate }) => {
   const [user, setUser] = React.useState<UserProfile | null>(null);
   const [streakData, setStreakData] = React.useState<any>(null);
@@ -36,17 +94,24 @@ const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate }) => {
   // Calmness is the inverse of stress
   const calmnessScore = 100 - stressScore;
 
+  const theme = getPetTheme(animal, isStressed);
+  const title = getPetTitle(animal);
+
   return (
     <div style={{
       background: 'var(--bg-secondary)',
-      border: '1px solid var(--border-color)',
-      borderRadius: 18,
-      padding: 20,
+      backgroundImage: theme.bgGradient,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 24,
+      padding: 24,
       boxShadow: 'var(--shadow-lg)',
       marginBottom: 16,
+      position: 'relative',
+      overflow: 'hidden',
+      transition: 'all 0.5s ease',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>Your Companion</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, position: 'relative', zIndex: 1 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: theme.titleColor, transition: 'color 0.5s ease' }}>{title}</div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <div style={{
             background: 'var(--bg-tertiary)', padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)'
@@ -69,10 +134,10 @@ const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate }) => {
         {/* Glow effect behind the pet */}
         <div style={{
           position: 'absolute',
-          width: 200, height: 200,
-          background: isStressed ? 'rgba(239, 68, 68, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+          width: 240, height: 240,
+          background: theme.glowColor,
           borderRadius: '50%',
-          filter: 'blur(30px)',
+          filter: 'blur(40px)',
           zIndex: 0,
           transition: 'background 0.5s ease',
         }} />
@@ -82,10 +147,10 @@ const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate }) => {
         </div>
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 20, position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Calmness Score</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: isStressed ? '#ef4444' : 'var(--accent-primary)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: theme.accent, transition: 'color 0.5s ease' }}>
             {calmnessScore}%
           </div>
         </div>
@@ -93,7 +158,7 @@ const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate }) => {
           <div style={{
             width: `${calmnessScore}%`,
             height: '100%',
-            background: isStressed ? '#ef4444' : 'var(--accent-primary)',
+            background: theme.accent,
             borderRadius: 4,
             transition: 'width 0.5s ease, background 0.5s ease',
           }} />

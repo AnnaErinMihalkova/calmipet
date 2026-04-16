@@ -12,6 +12,8 @@ services:
         value: sqlite:///./data/calmipet.db
       - key: CALMIPET_SKIP_RATE_LIMIT
         value: "1"
+      - key: CORS_ORIGINS
+        value: "https://calmipet-frontend.onrender.com,https://calmipet.onrender.com"
     # Note: SQLite data will be lost on every restart/deploy on the free tier.
     # To persist data, a paid plan with a persistent disk is required.
 

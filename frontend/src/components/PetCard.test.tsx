@@ -25,11 +25,12 @@ describe('PetCard', () => {
     // stressScore = 0 -> Calmness = 100
     render(<PetCard hrv={80} heartRate={60} />);
 
-    // Check title
-    expect(screen.getByText('Your Companion')).toBeInTheDocument();
+    // Check title (initial render uses fallback 'raccoon')
+    expect(screen.getByText('Your Masked Buddy')).toBeInTheDocument();
 
     // Check if the mock services have loaded data into the UI
     await waitFor(() => {
+      expect(screen.getByText('Your Cunning Companion')).toBeInTheDocument();
       expect(screen.getByText('Lvl 3')).toBeInTheDocument();
       expect(screen.getByText('🔥 5 Day Streak')).toBeInTheDocument();
       expect(screen.getByText('100%')).toBeInTheDocument();
