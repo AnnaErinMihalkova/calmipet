@@ -60,8 +60,10 @@ const BottomNav: React.FC = () => {
         background: 'var(--bg-secondary)',
         borderTop: '1px solid var(--border-color)',
         zIndex: 1000,
-        position: 'sticky',
+        position: 'fixed',
         bottom: 0,
+        left: 0,
+        right: 0,
       }}
     >
       <IconBtn onClick={() => navigate('/dashboard')} emoji="🏠" label="Home" active={path === '/dashboard'} />
@@ -190,11 +192,20 @@ const AccountView: React.FC = () => {
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = React.useState<number>(0);
+  const [checkingAuth, setCheckingAuth] = React.useState<boolean>(true);
 
   React.useEffect(() => {
-    if (authService.isAuthenticated()) {
-      navigate('/dashboard');
+    // Token presence alone isn't enough; validate it with /auth/me.
+    // If it's invalid/expired, clear it and keep the user on the home screen.
+    const token = localStorage.getItem('calmipet-token');
+    if (!token) {
+      setCheckingAuth(false);
+      return;
     }
+    authService.getMe()
+      .then(() => navigate('/dashboard'))
+      .catch(() => authService.logout())
+      .finally(() => setCheckingAuth(false));
   }, [navigate]);
 
   React.useEffect(() => {
@@ -209,6 +220,10 @@ const Onboarding: React.FC = () => {
     { animal: '🦉', text: 'See progress with a simple mood meter' },
   ];
   const s = slides[step % slides.length];
+
+  if (checkingAuth) {
+    return <div className="app-shell" style={{ padding: 24 }}>Loading...</div>;
+  }
 
   return (
     <div className="app-shell">
