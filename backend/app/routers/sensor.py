@@ -1,369 +1,246 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
-import os
-from typing import List, Dict, Any
-from app.database import get_connection
-from app.models import DataPayload, AnalyzePayload
-from app.auth_utils import parse_user_id_from_token
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, timezone 
+from fastapi import APIRouter, Depends, HTTPException, Request 
+from pydantic import BaseModel 
+ 
+from app.auth_utils import parse_user_id_from_token 
+from app.database import get_connection 
+ 
+router = APIRouter() 
+ 
+# --------------------------------------------------------------------------- 
+# Auth dependency — replaces 8 copy-pasted auth blocks (#23) 
+# --------------------------------------------------------------------------- 
+ 
+def get_current_user_id(request: Request) -> int: 
+    """FastAPI dependency: parse & validate the Bearer token; raise 401 on failure.""" 
+    auth = request.headers.get("authorization", "") 
+    uid = parse_user_id_from_token(auth) 
+    if uid is None: 
+        raise HTTPException(status_code=401, detail="Unauthorized") 
+    return uid 
+ 
+ 
+# --------------------------------------------------------------------------- 
+# Rate-limit helper — fixed datetime comparison (#8) 
+# --------------------------------------------------------------------------- 
+ 
+RATE_LIMIT_SECONDS = 30 
+ 
+ 
+def _too_soon(user_id: int) -> bool: 
+    """ 
+    Return True if the user submitted a reading within the last 
+    RATE_LIMIT_SECONDS seconds. 
+    Uses timezone-aware UTC datetimes throughout (#8). 
+    """ 
+    with get_connection() as conn: 
+        try: 
+            row = conn.execute( 
+                "SELECT timestamp FROM readings WHERE user_id = ? ORDER BY id DESC LIMIT 1", 
+                (user_id,), 
+            ).fetchone() 
+            if not row: 
+                return False 
+            # Store and compare as UTC-aware datetimes (#8) 
+            last_str: str = row[0] 
+            # Handle both "2024-01-01T12:00:00" and "2024-01-01 12:00:00" formats 
+            last = datetime.fromisoformat(last_str.replace(" ", "T")) 
+            if last.tzinfo is None: 
+                last = last.replace(tzinfo=timezone.utc) 
+            now = datetime.now(timezone.utc) 
+            return (now - last) < timedelta(seconds=RATE_LIMIT_SECONDS) 
+        except (ValueError, TypeError): 
+            return False 
+ 
+ 
+# --------------------------------------------------------------------------- 
+# Pydantic models 
+# --------------------------------------------------------------------------- 
+ 
+class DataPayload(BaseModel): 
+    heart_rate: float 
+    hrv: float | None = None 
+    stress_level: float | None = None 
+ 
+ 
+class BreathingSessionStart(BaseModel): 
+    pass 
+ 
+ 
+# --------------------------------------------------------------------------- 
+# Endpoints 
+# --------------------------------------------------------------------------- 
+ 
+@router.post("/api/data") 
+def add_data( 
+    payload: DataPayload, 
+    user_id: int = Depends(get_current_user_id),   # now requires auth (#17) 
+): 
+    if _too_soon(user_id): 
+        raise HTTPException(status_code=429, detail="Too many readings") 
+ 
+    with get_connection() as conn: 
+        try: 
+            conn.execute( 
+                """INSERT INTO readings (user_id, heart_rate, hrv, stress_level) 
+                   VALUES (?, ?, ?, ?)""", 
+                (user_id, payload.heart_rate, payload.hrv, payload.stress_level), 
+            ) 
+            conn.commit() 
+        except Exception as exc: 
+            raise HTTPException(status_code=500, detail="Database error") from exc 
+ 
+    return {"status": "ok"} 
+ 
+ 
+@router.get("/api/data") 
+def get_data( 
+    limit: int = 50, 
+    user_id: int = Depends(get_current_user_id), 
+): 
+    with get_connection() as conn: 
+        rows = conn.execute( 
+            """SELECT id, heart_rate, hrv, stress_level, timestamp 
+               FROM readings WHERE user_id = ? 
+               ORDER BY id DESC LIMIT ?""", 
+            (user_id, limit), 
+        ).fetchall() 
+    return [ 
+        { 
+            "id": r[0], 
+            "heart_rate": r[1], 
+            "hrv": r[2], 
+            "stress_level": r[3], 
+            "timestamp": r[4], 
+        } 
+        for r in rows 
+    ] 
+ 
+ 
+@router.post("/api/analyze") 
+def analyze( 
+    payload: DataPayload, 
+    user_id: int = Depends(get_current_user_id),   # now requires auth (#17) 
+): 
+    """Improved combined HR/HRV stress analysis.""" 
+    hrv = payload.hrv or payload.stress_level or payload.heart_rate 
+    hr = payload.heart_rate
 
-router = APIRouter()
+    # Calculate an accurate 0-100 stress score based on both HR and HRV
+    # High HR (e.g. > 85) increases stress
+    # Low HRV (e.g. < 30) increases stress
+    
+    # 1. Normalize HR (Resting range 60-100)
+    # Higher HR = higher stress component
+    hr_factor = max(0.0, min(1.0, (hr - 60) / 40.0))
+    
+    # 2. Normalize HRV (Typical RMSSD range 20-80)
+    # Lower HRV = higher stress component
+    hrv_factor = max(0.0, min(1.0, (80 - hrv) / 60.0))
+    
+    # 3. Weighted combination (HRV is generally a stronger indicator of stress than raw HR)
+    stress_score = (0.4 * hr_factor + 0.6 * hrv_factor) * 100
 
-def _too_soon(conn, uid: int | None = None) -> bool:
-    if os.getenv("CALMIPET_SKIP_RATE_LIMIT") == "1":
-        return False
-    cur = conn.cursor()
-    if uid is not None:
-        cur.execute("SELECT timestamp FROM sensor_data WHERE user_id = ? ORDER BY timestamp DESC LIMIT 1", (uid,))
-    else:
-        cur.execute("SELECT timestamp FROM sensor_data ORDER BY timestamp DESC LIMIT 1")
-    row = cur.fetchone()
-    if not row or not row[0]:
-        return False
-    try:
-        last = datetime.fromisoformat(row[0])
-    except:
-        return False
-    now = datetime.utcnow()
-    return (now - last) < timedelta(minutes=10)
-
-@router.post("/data")
-def add_data(payload: DataPayload):
-    conn = get_connection()
-    if _too_soon(conn):
-        conn.close()
-        raise HTTPException(status_code=429, detail="Please wait 10 minutes between readings")
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO sensor_data (heart_rate, spo2, stress_level) VALUES (?, ?, ?)",
-        (payload.heart_rate, payload.spo2, payload.stress_level if payload.stress_level is not None else 0.0)
-    )
-    conn.commit()
-    conn.close()
-    return {"message": "Data saved"}
-
-@router.get("/data")
-def get_data():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC")
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
-
-@router.post("/analyze")
-def analyze(payload: AnalyzePayload) -> Dict[str, Any]:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT heart_rate FROM sensor_data ORDER BY timestamp DESC LIMIT 20")
-    hr_rows = cursor.fetchall()
-    conn.close()
-    history_hr: List[int] = [r[0] for r in hr_rows] if hr_rows else []
-    baseline = sum(history_hr) / len(history_hr) if history_hr else 70.0
-    delta = payload.heart_rate - baseline
-    score = max(0.0, min(1.0, delta / 40.0))
-    label = "low"
-    if score >= 0.6:
-        label = "high"
-    elif score >= 0.3:
-        label = "medium"
+    if stress_score > 65: 
+        label = "stressed" 
+    elif stress_score > 35: 
+        label = "moderate" 
+    else: 
+        label = "calm" 
+        
     return {
-        "heart_rate": payload.heart_rate,
-        "spo2": payload.spo2,
-        "baseline_hr": round(baseline, 2),
-        "score": round(score, 3),
-        "label": label,
-        "history_count": len(history_hr),
+        "user_id": user_id, 
+        "stress_label": label, 
+        "stress_score": round(stress_score),
+        "hrv": hrv,
+        "hr": hr
+    } 
+ 
+ 
+@router.post("/api/breathing/start") 
+def start_breathing_session( 
+    user_id: int = Depends(get_current_user_id), 
+): 
+    with get_connection() as conn: 
+        try: 
+            cursor = conn.execute( 
+                "INSERT INTO breathing_sessions (user_id) VALUES (?)", (user_id,) 
+            ) 
+            session_id = cursor.lastrowid 
+            conn.commit() 
+        except Exception as exc: 
+            raise HTTPException(status_code=500, detail="Database error") from exc 
+    return {"id": session_id} 
+ 
+ 
+@router.post("/api/breathing/{session_id}/complete") 
+def complete_breathing_session( 
+    session_id: int, 
+    user_id: int = Depends(get_current_user_id), 
+): 
+    with get_connection() as conn: 
+        try: 
+            row = conn.execute( 
+                "SELECT id FROM breathing_sessions WHERE id = ? AND user_id = ?", 
+                (session_id, user_id), 
+            ).fetchone() 
+            if not row: 
+                raise HTTPException(status_code=404, detail="Session not found") 
+ 
+            conn.execute( 
+                "UPDATE breathing_sessions SET completed = 1 WHERE id = ?", 
+                (session_id,), 
+            ) 
+ 
+            # Upsert gamification row — commit is NOT missing here (#9) 
+            gam = conn.execute( 
+                "SELECT id, streak FROM gamification WHERE user_id = ?", (user_id,) 
+            ).fetchone() 
+ 
+            today = datetime.now(timezone.utc).date().isoformat() 
+ 
+            if not gam: 
+                conn.execute( 
+                    """INSERT INTO gamification 
+                           (user_id, streak, xp, last_session_date, sessions_today) 
+                       VALUES (?, 1, 10, ?, 1)""", 
+                    (user_id, today), 
+                ) 
+            else: 
+                gam_id, streak = gam 
+                conn.execute( 
+                    """UPDATE gamification 
+                       SET streak = ?, xp = xp + 10, 
+                           last_session_date = ?, sessions_today = sessions_today + 1 
+                       WHERE id = ?""", 
+                    (streak + 1, today, gam_id), 
+                ) 
+ 
+            conn.commit()  # single commit covers all writes above (#9) 
+ 
+        except HTTPException: 
+            raise 
+        except Exception as exc: 
+            raise HTTPException(status_code=500, detail="Database error") from exc 
+ 
+    # No duplicate return (#5) 
+    return {"id": session_id, "completed": True} 
+ 
+ 
+@router.get("/api/breathing/streak") 
+def get_streak( 
+    user_id: int = Depends(get_current_user_id), 
+): 
+    with get_connection() as conn: 
+        row = conn.execute( 
+            "SELECT streak, xp, last_session_date, sessions_today FROM gamification WHERE user_id = ?", 
+            (user_id,), 
+        ).fetchone() 
+    if not row: 
+        return {"streak": 0, "xp": 0, "last_session_date": None, "sessions_today": 0} 
+    return { 
+        "streak": row[0], 
+        "xp": row[1], 
+        "last_session_date": row[2], 
+        "sessions_today": row[3], 
     }
-
-@router.get("/readings/")
-def list_readings(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, heart_rate, stress_level, timestamp FROM sensor_data WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50", (uid,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [
-        {
-            "id": r[0],
-            "heart_rate": r[1],
-            "stress_level": r[2],
-            "timestamp": r[3],
-        }
-        for r in rows
-    ]
-
-@router.get("/readings/{id}/")
-def get_reading(id: int, request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, heart_rate, stress_level, timestamp, user_id FROM sensor_data WHERE id = ?", (id,))
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return {}
-    if row[4] != uid:
-        raise HTTPException(status_code=404, detail="Not found")
-    return {
-        "id": row[0],
-        "heart_rate": row[1],
-        "stress_level": row[2],
-        "timestamp": row[3],
-    }
-
-@router.post("/readings/")
-def create_reading(payload: Dict[str, Any], request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    if _too_soon(conn, uid):
-        conn.close()
-        raise HTTPException(status_code=429, detail="Please wait 10 minutes between readings")
-    cursor = conn.cursor()
-    hr = int(payload.get("heart_rate", 0))
-    stress_val = payload.get("stress_level", None)
-    stress = float(stress_val) if stress_val is not None else None
-    cursor.execute(
-        "INSERT INTO sensor_data (heart_rate, spo2, stress_level, user_id) VALUES (?, ?, ?, ?)",
-        (hr, 98, stress if stress is not None else 0.0, uid)
-    )
-    new_id = cursor.lastrowid
-    conn.commit()
-    cursor.execute("SELECT timestamp FROM sensor_data WHERE id = ?", (new_id,))
-    ts_row = cursor.fetchone()
-    conn.close()
-    return {
-        "message": "Data saved",
-        "id": new_id,
-        "heart_rate": hr,
-        "stress_level": stress,
-        "timestamp": ts_row[0] if ts_row else None,
-    }
-
-@router.post("/bracelet/readings/")
-def create_reading_external(payload: Dict[str, Any], request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    if _too_soon(conn, uid):
-        conn.close()
-        raise HTTPException(status_code=429, detail="Please wait 10 minutes between readings")
-    cursor = conn.cursor()
-    hr = int(payload.get("hr", 0))
-    hrv_val = payload.get("hrv", None)
-    hrv = float(hrv_val) if hrv_val is not None else None
-    cursor.execute(
-        "INSERT INTO sensor_data (heart_rate, spo2, stress_level, user_id) VALUES (?, ?, ?, ?)",
-        (hr, 98, hrv if hrv is not None else 0.0, uid)
-    )
-    new_id = cursor.lastrowid
-    conn.commit()
-    cursor.execute("SELECT timestamp FROM sensor_data WHERE id = ?", (new_id,))
-    ts_row = cursor.fetchone()
-    conn.close()
-    return {
-        "message": "Data saved",
-        "id": new_id,
-        "heart_rate": hr,
-        "stress_level": hrv,
-        "timestamp": ts_row[0] if ts_row else None,
-    }
-
-@router.get("/pets/mine/")
-def get_pet(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT pet_animal, mood, level, xp FROM pets WHERE user_id = ?", (uid,))
-    row = cur.fetchone()
-    if not row:
-        cur.execute("INSERT INTO pets (user_id) VALUES (?)", (uid,))
-        conn.commit()
-        cur.execute("SELECT pet_animal, mood, level, xp FROM pets WHERE user_id = ?", (uid,))
-        row = cur.fetchone()
-    conn.close()
-    return {"pet_animal": row[0], "mood": row[1], "level": row[2], "xp": row[3]}
-
-@router.post("/pets/mine/update/")
-def update_pet(request: Request, payload: Dict[str, Any]):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    pet_animal = payload.get("pet_animal", None)
-    mood = payload.get("mood", None)
-    level = payload.get("level", None)
-    xp_delta = payload.get("xp_delta", None)
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT pet_animal, mood, level, xp FROM pets WHERE user_id = ?", (uid,))
-    row = cur.fetchone()
-    if not row:
-        cur.execute("INSERT INTO pets (user_id) VALUES (?)", (uid,))
-        conn.commit()
-    sets = []
-    params = []
-    if pet_animal is not None:
-        sets.append("pet_animal = ?")
-        params.append(str(pet_animal))
-    if mood is not None:
-        sets.append("mood = ?")
-        params.append(str(mood))
-    if level is not None:
-        sets.append("level = ?")
-        params.append(int(level))
-    if xp_delta is not None:
-        sets.append("xp = COALESCE(xp, 0) + ?")
-        params.append(int(xp_delta))
-    if sets:
-        q = "UPDATE pets SET " + ", ".join(sets) + ", updated_at = CURRENT_TIMESTAMP WHERE user_id = ?"
-        params.append(uid)
-        cur.execute(q, tuple(params))
-        conn.commit()
-    cur.execute("SELECT pet_animal, mood, level, xp FROM pets WHERE user_id = ?", (uid,))
-    row = cur.fetchone()
-    conn.close()
-    return {"pet_animal": row[0], "mood": row[1], "level": row[2], "xp": row[3]}
-
-@router.get("/streaks/mine/")
-def get_streak(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT current_streak, max_streak, level, badges, sessions_today, last_session_date FROM gamification WHERE user_id = ?", (uid,))
-    row = cur.fetchone()
-    if not row:
-        cur.execute("INSERT INTO gamification (user_id, current_streak, max_streak, level, badges, sessions_today, last_session_date) VALUES (?, 0, 0, 1, '', 0, NULL)", (uid,))
-        conn.commit()
-        cur.execute("SELECT current_streak, max_streak, level, badges, sessions_today, last_session_date FROM gamification WHERE user_id = ?", (uid,))
-        row = cur.fetchone()
-    conn.close()
-    return {
-        "current_streak": row[0],
-        "max_streak": row[1],
-        "level": row[2],
-        "badges": row[3],
-        "sessions_today": row[4],
-        "last_session_date": row[5]
-    }
-
-@router.post("/breathing-sessions/")
-def create_breathing_session(request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO breathing_sessions (duration_seconds, user_id) VALUES (60, ?)", (uid,))
-    session_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return {"id": session_id, "started_at": "now", "completed": False}
-
-@router.post("/breathing-sessions/{id}/complete/")
-def complete_breathing_session(id: int, request: Request):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE breathing_sessions SET completed = 1, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", (id, uid))
-    conn.commit()
-    cursor.execute("SELECT current_streak, max_streak, last_session_date, sessions_today FROM gamification WHERE user_id = ?", (uid,))
-    row = cursor.fetchone()
-    today = date.today().isoformat()
-    if not row:
-        cursor.execute("INSERT INTO gamification (user_id, current_streak, max_streak, level, badges, updated_at, last_session_date, sessions_today) VALUES (?, 1, 1, 1, '', CURRENT_TIMESTAMP, ?, 1)", (uid, today))
-    else:
-        current, maxs, last_date, sessions_today = row
-        if last_date == today:
-            sessions_today = (sessions_today or 0) + 1
-            cursor.execute("UPDATE gamification SET sessions_today = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", (sessions_today, uid))
-        else:
-            current = (current or 0) + 1
-            maxs = max(maxs or 0, current)
-            cursor.execute("UPDATE gamification SET current_streak = ?, max_streak = ?, last_session_date = ?, sessions_today = 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", (current, maxs, today, uid))
-    conn.close()
-    return {"id": id, "completed": True}
-    return {"id": id, "completed": True}
-
-def _require_admin(conn, uid: int):
-    cur = conn.cursor()
-    cur.execute("SELECT is_admin FROM users WHERE id = ?", (uid,))
-    row = cur.fetchone()
-    if not row or (row[0] or 0) != 1:
-        raise HTTPException(status_code=403, detail="Admin required")
-    return True
-
-@router.get("/admin/readings/")
-def admin_list_readings(request: Request, limit: int = 100):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    _require_admin(conn, uid)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT s.id, s.heart_rate, s.stress_level, s.timestamp, s.user_id, u.username, u.email
-        FROM sensor_data s
-        LEFT JOIN users u ON s.user_id = u.id
-        ORDER BY s.timestamp DESC
-        LIMIT ?
-    """, (limit,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [
-        {
-            "id": r[0],
-            "heart_rate": r[1],
-            "stress_level": r[2],
-            "timestamp": r[3],
-            "user_id": r[4],
-            "username": r[5],
-            "email": r[6],
-        }
-        for r in rows
-    ]
-
-@router.get("/admin/users/")
-def admin_list_users(request: Request, limit: int = 100):
-    auth = request.headers.get("authorization") or request.headers.get("Authorization") or ""
-    uid = parse_user_id_from_token(auth or "")
-    if uid is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    conn = get_connection()
-    _require_admin(conn, uid)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, email, date_joined, is_admin FROM users ORDER BY date_joined DESC LIMIT ?", (limit,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [
-        {
-            "id": r[0],
-            "username": r[1],
-            "email": r[2],
-            "date_joined": r[3],
-            "is_admin": r[4],
-        }
-        for r in rows
-    ]

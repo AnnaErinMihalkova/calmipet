@@ -1,5 +1,7 @@
 .progress-view {
-  padding-bottom: 80px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 120px;
   animation: fadeIn 0.5s ease-out;
 }
 

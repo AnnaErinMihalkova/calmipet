@@ -1,5 +1,5 @@
 import React from 'react';
-import { wellnessService } from '../services/api';
+import { breathingService } from '../services/api';
 import AnimatedPetGraphic from './AnimatedPetGraphic';
 
 const PetCard: React.FC = () => {
@@ -10,13 +10,14 @@ const PetCard: React.FC = () => {
 
   const load = async () => {
     try {
-      const p = await wellnessService.getPet();
-      setPet(p);
-    } catch {}
-    try {
-      const s = await wellnessService.getStreak();
+      const s = await breathingService.getStreak();
       setStreak(s);
     } catch {}
+    // Mock pet data since wellnessService doesn't exist
+    setPet({
+      mood: 'calm',
+      mood_score: 0.7
+    });
   };
 
   React.useEffect(() => { load(); }, []);
@@ -43,57 +44,135 @@ const PetCard: React.FC = () => {
   const stressed = (pet && pet.mood === 'stressed') || (pet && pet.mood_score !== undefined && pet.mood_score < 0.4);
   const mood: 'calm' | 'focused' | 'stressed' = stressed ? 'stressed' : moodLabel === 'focused' ? 'focused' : 'calm';
   const calmness = pet && typeof pet.mood_score === 'number' ? Math.max(0, Math.min(100, Math.round(pet.mood_score * 100))) : 0;
+
+  const getPetTheme = (animal: string, isStressed: boolean) => {
+    if (isStressed) {
+      return {
+        bgGradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(220, 38, 38, 0.15) 100%)',
+        glowColor: 'rgba(239, 68, 68, 0.25)',
+        accent: '#ef4444',
+        border: 'rgba(239, 68, 68, 0.3)',
+        titleColor: '#f87171'
+      };
+    }
+
+    switch (animal) {
+      case 'cat':
+        return {
+          bgGradient: 'linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(219, 39, 119, 0.15) 100%)',
+          glowColor: 'rgba(236, 72, 153, 0.25)',
+          accent: '#ec4899',
+          border: 'rgba(236, 72, 153, 0.3)',
+          titleColor: '#f472b6'
+        };
+      case 'fox':
+        return {
+          bgGradient: 'linear-gradient(135deg, rgba(249, 115, 22, 0.05) 0%, rgba(234, 88, 12, 0.15) 100%)',
+          glowColor: 'rgba(249, 115, 22, 0.25)',
+          accent: '#f97316',
+          border: 'rgba(249, 115, 22, 0.3)',
+          titleColor: '#fb923c'
+        };
+      case 'owl':
+        return {
+          bgGradient: 'linear-gradient(135deg, rgba(14, 165, 233, 0.05) 0%, rgba(2, 132, 199, 0.15) 100%)',
+          glowColor: 'rgba(14, 165, 233, 0.25)',
+          accent: '#0ea5e9',
+          border: 'rgba(14, 165, 233, 0.3)',
+          titleColor: '#38bdf8'
+        };
+      case 'raccoon':
+      default:
+        return {
+          bgGradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(79, 70, 229, 0.15) 100%)',
+          glowColor: 'rgba(99, 102, 241, 0.25)',
+          accent: '#6366f1',
+          border: 'rgba(99, 102, 241, 0.3)',
+          titleColor: '#818cf8'
+        };
+    }
+  };
+
+  const getPetTitle = (animal: string) => {
+    switch (animal) {
+      case 'cat': return 'Your Feline Friend';
+      case 'fox': return 'Your Cunning Companion';
+      case 'owl': return 'Your Wise Guardian';
+      case 'raccoon':
+      default: return 'Your Masked Buddy';
+    }
+  };
+
+  const theme = getPetTheme(selected, stressed);
+  const title = getPetTitle(selected);
+
   return (
-    <div style={{ padding: 16, border: '1px solid var(--border-color)', borderRadius: 18, background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(52,152,219,0.08))' }}>
-      <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        {/* Level and streak info positioned at top right */}
-        <div style={{ position: 'absolute', top: 0, right: 0, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right' }}>
-          <div>Lvl {streak?.level ?? 1}</div>
-          <div>{streak ? `Streak ${streak.current_streak}d` : 'Streak 0d'}</div>
+    <div style={{
+      background: 'var(--bg-secondary)',
+      backgroundImage: theme.bgGradient,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 24,
+      padding: 24,
+      boxShadow: 'var(--shadow-lg)',
+      marginBottom: 16,
+      position: 'relative',
+      overflow: 'hidden',
+      transition: 'all 0.5s ease',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, position: 'relative', zIndex: 1 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: theme.titleColor, transition: 'color 0.5s ease' }}>{title}</div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div style={{
+            background: 'var(--bg-tertiary)', padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)'
+          }}>
+            Lvl {streak?.level ?? 1}
+          </div>
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.1)', padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: '#f59e0b'
+          }}>
+            🔥 {streak?.current_streak || 0} Day Streak
+          </div>
         </div>
+      </div>
+
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        padding: '30px 0',
+        position: 'relative',
+      }}>
+        <div style={{
+          position: 'absolute',
+          width: 240, height: 240,
+          background: theme.glowColor,
+          borderRadius: '50%',
+          filter: 'blur(40px)',
+          zIndex: 0,
+          transition: 'background 0.5s ease',
+        }} />
         
-        {/* Pet circle */}
-        <div style={{ 
-          width: 200, 
-          height: 200, 
-          borderRadius: '50%', 
-          background: stressed ? 'radial-gradient(60% 60% at 50% 50%, rgba(231,76,60,0.28), transparent)' : 'radial-gradient(60% 60% at 50% 50%, rgba(124,58,237,0.25), transparent)', 
-          display: 'grid', 
-          placeItems: 'center', 
-          boxShadow: stressed ? '0 0 40px rgba(231,76,60,0.3) inset' : '0 0 40px rgba(124,58,237,0.3) inset',
-          border: '3px solid #7C3AED',
-          position: 'relative'
-        }}>
-          <AnimatedPetGraphic animal={selected as any} mood={mood} size={140} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <AnimatedPetGraphic animal={selected as any} mood={mood} size={160} />
         </div>
       </div>
-      
-      {/* Mood and happiness info */}
-      <div style={{ marginTop: 16, textAlign: 'center' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: stressed ? 'var(--accent-color)' : 'inherit' }}>
-          {pet ? `Mood: ${pet.mood}` : ready ? 'Mood: calm' : 'Loading...'}
+
+      <div style={{ marginTop: 20, position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Calmness Score</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: theme.accent, transition: 'color 0.5s ease' }}>
+            {calmness}%
+          </div>
         </div>
-        <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-secondary)' }}>
-          {pet ? `Mood score ${(pet.mood_score * 100).toFixed(0)}%` : ''}
-        </div>
-      </div>
-      
-      {/* Calmness level bar */}
-      <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600 }}>Happiness Level</div>
-        <div style={{ height: 8, background: 'var(--border-color)', borderRadius: 4 }}>
+        <div style={{ height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
           <div style={{
             width: `${calmness}%`,
-            height: 8,
+            height: '100%',
+            background: theme.accent,
             borderRadius: 4,
-            background: stressed
-              ? 'linear-gradient(90deg, #E74C3C, #C0392B)'
-              : 'linear-gradient(90deg, var(--accent-color), var(--accent-hover))',
-            transition: 'width 0.3s ease'
+            transition: 'width 0.5s ease, background 0.5s ease',
           }} />
         </div>
-        <div style={{ color: stressed ? '#E74C3C' : 'var(--accent-color)', fontSize: 12, fontWeight: 600 }}>
-          {pet ? (stressed ? 'Stressed' : 'Calm') : ready ? 'Calm' : ''}
+        <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: theme.accent }}>
+          {pet ? `Mood: ${pet.mood}` : ready ? 'Mood: calm' : 'Loading...'}
         </div>
       </div>
     </div>

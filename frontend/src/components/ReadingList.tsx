@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { readingService, Reading, CreateReading } from '../services/api';
+import { readingService, Reading, NewReading } from '../services/api';
 import { authService } from '../services/auth';
 import './ReadingList.css';
 
@@ -9,7 +9,7 @@ const ReadingList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    authService.me().then(() => {
+    authService.getMe().then(() => {
       fetchReadings();
     }).catch(() => {
       setError('Please log in to view readings');
@@ -20,7 +20,7 @@ const ReadingList: React.FC = () => {
   const fetchReadings = async () => {
     try {
       setLoading(true);
-      const data = await readingService.getAllReadings();
+      const data = await readingService.getReadings();
       setReadings(data);
       setError(null);
     } catch (err) {
@@ -33,12 +33,19 @@ const ReadingList: React.FC = () => {
 
   const handleCreateReading = async () => {
     try {
-      const newReading: CreateReading = {
+      const newReading: NewReading = {
         heart_rate: Math.floor(Math.random() * 40) + 60,
         stress_level: Math.floor(Math.random() * 50) + 20,
       };
       const created = await readingService.createReading(newReading);
-      setReadings([...readings, created]);
+      // Optimistic update
+      setReadings([...readings, {
+        id: Date.now(),
+        heart_rate: newReading.heart_rate,
+        hrv: newReading.hrv || 0,
+        stress_level: newReading.stress_level || 0,
+        timestamp: new Date().toISOString()
+      }]);
     } catch (err) {
       setError('Failed to create reading');
       console.error('Error creating reading:', err);
@@ -57,7 +64,7 @@ const ReadingList: React.FC = () => {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setError('Failed to export CSV');
+      setError('Failed to export CSV. Backend endpoint may not be implemented yet.');
       console.error('Error exporting CSV:', err);
     }
   };
@@ -92,12 +99,19 @@ const ReadingList: React.FC = () => {
             <div key={reading.id} className="reading-card">
               <p className="reading-item"><strong>Date:</strong> {reading.timestamp ? new Date(reading.timestamp).toLocaleString() : 'N/A'}</p>
               <p className="reading-item"><strong>Heart Rate:</strong> {reading.heart_rate} BPM</p>
-              <p className="reading-item"><strong>Stress:</strong> {reading.stress_level == null ? 'N/A' : reading.stress_level < 1 ? (reading.stress_level * 100).toFixed(0) + '%' : reading.stress_level.toFixed(1)}</p>
+              <p className="reading-item"><strong>HRV:</strong> {reading.stress_level != null ? reading.stress_level.toFixed(1) : 'N/A'} ms</p>
               <p className="reading-item"><strong>Mood:</strong> {
-                (reading.stress_level ?? 0) < 0.3 ? '😌 Calm' :
-                (reading.stress_level ?? 0) < 0.6 ? '😐 Focused' :
-                (reading.stress_level ?? 0) < 1.0 ? '😫 Stressed' :
-                (reading.stress_level ?? 0) > 50 ? '😌 Calm (High HRV)' : '😐 Balanced'
+                (() => {
+                  const hr = reading.heart_rate || 70;
+                  const hrvVal = reading.stress_level || 50;
+                  const hrFactor = Math.max(0, Math.min(1, (hr - 60) / 40.0));
+                  const hrvFactor = Math.max(0, Math.min(1, (80 - hrvVal) / 60.0));
+                  const stressScore = Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
+                  
+                  if (stressScore > 65) return '😫 Stressed';
+                  if (stressScore > 35) return '😐 Moderate';
+                  return '😌 Calm';
+                })()
               }</p>
             </div>
           ))}

@@ -1,0 +1,36 @@
+services:
+  # Backend FastAPI Service
+  - type: web
+    name: calmipet-backend
+    runtime: docker
+    plan: free
+    # Render will look for the Dockerfile inside this directory
+    rootDir: backend
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./data/calmipet.db
+      - key: CALMIPET_SKIP_RATE_LIMIT
+        value: "1"
+      - key: CORS_ORIGINS
+        value: "https://calmipet-frontend.onrender.com,https://calmipet.onrender.com"
+    # Note: SQLite data will be lost on every restart/deploy on the free tier.
+    # To persist data, a paid plan with a persistent disk is required.
+
+  # Frontend React Static Site
+  - type: web
+    name: calmipet-frontend
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: REACT_APP_API_BASE_URL
+        # This will be your backend URL (e.g., https://calmipet-backend.onrender.com/api/)
+        # You should update this after deploying the backend.
+        value: https://calmipet-backend.onrender.com/api/

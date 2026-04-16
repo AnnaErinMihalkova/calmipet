@@ -18,8 +18,7 @@ const CircularLogo: React.FC<CircularLogoProps> = ({ size = 120, className = '' 
       return 'raccoon';
     }
   };
-
-  useEffect(() => {
+useEffect(() => {
     setSelected(getSelected());
     
     const handleStorageChange = () => {
@@ -37,7 +36,6 @@ const CircularLogo: React.FC<CircularLogoProps> = ({ size = 120, className = '' 
       clearInterval(interval);
     };
   }, []);
-  
   const emojiMap: Record<string, string> = { raccoon: '🦝', cat: '🐱', fox: '🦊', owl: '🦉' };
   return (
     <div className={`circular-logo ${className}`} style={{ width: size, height: size }}>

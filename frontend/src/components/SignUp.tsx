@@ -139,22 +139,17 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
       ratings[todayKey] = stress;
       localStorage.setItem('hb_stress_ratings', JSON.stringify(ratings));
 
-      const response = await authService.signUp({
+      const response = await authService.register({
         username: formData.username,
         email: formData.email,
         password: formData.password,
       });
       
       try {
-        if (response.accessToken) {
-          localStorage.setItem('accessToken', response.accessToken);
+        if (response.token) {
+          localStorage.setItem('calmipet-token', response.token);  
         }
-        if (response.refreshToken) {
-          localStorage.setItem('refreshToken', response.refreshToken);
-        }
-        if (response.user) {
-          localStorage.setItem('hb_user', JSON.stringify(response.user));
-        }
+        localStorage.setItem('hb_user_id', response.user_id.toString());
       } catch {}
       
       setSuccessMessage('Account created successfully! Redirecting...');

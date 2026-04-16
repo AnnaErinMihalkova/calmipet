@@ -4,6 +4,9 @@
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: all 0.3s ease;
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 120px;
 }
 
 .reading-list-title {
