@@ -32,8 +32,8 @@ class Settings(BaseSettings):
         ] 
     ) 
 
-    # For local mobile testing, we allow private network IPs via regex
-    CORS_ORIGIN_REGEX: str | None = os.environ.get("CORS_ORIGIN_REGEX", r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$")
+    # For local mobile testing and Render deployment, we allow private network IPs and render domains via regex
+    CORS_ORIGIN_REGEX: str | None = os.environ.get("CORS_ORIGIN_REGEX", r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|.*\.onrender\.com)(:\d+)?$")
 
  
     class Config: 
