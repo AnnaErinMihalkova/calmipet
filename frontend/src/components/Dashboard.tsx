@@ -97,6 +97,7 @@ const Dashboard: React.FC = () => {
   const last = readings[readings.length - 1];
   const heartRate = last?.heart_rate ?? null;
   const hrv = last?.stress_level ?? null;
+  const heartRateInt = heartRate == null ? null : Math.round(heartRate);
 
   // Improved stress algorithm taking both HR and HRV into account
   const getStressInfo = (hr: number | null, hrvVal: number | null) => {
@@ -176,7 +177,7 @@ const Dashboard: React.FC = () => {
           <div style={{ flex: 1, borderRight: '1px solid var(--border-color)', paddingRight: 16 }}>
             <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4 }}>Heart Rate</div>
             <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent-primary)' }}>
-              {heartRate ? `${heartRate}` : '--'}
+              {heartRateInt == null ? '--' : `${heartRateInt}`}
               <span style={{ fontSize: 16, color: 'var(--text-secondary)', fontWeight: 600, marginLeft: 4 }}>BPM</span>
             </div>
           </div>
@@ -202,7 +203,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <PetCard hrv={hrv} heartRate={heartRate} />
+      <PetCard hrv={hrv} heartRate={heartRateInt} />
 
       <div style={{
         background: 'var(--bg-secondary)',
