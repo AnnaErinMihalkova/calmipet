@@ -14,6 +14,8 @@ class BackendTestCase(unittest.TestCase):
         os.environ["CALMIPET_SKIP_RATE_LIMIT"] = "1"
         test_db = Path("data/test.db")
         test_db.parent.mkdir(exist_ok=True)
+        if test_db.exists():
+            test_db.unlink()
         database.DATABASE_PATH = str(test_db)
         database.init_db()
         cls.client = TestClient(app)

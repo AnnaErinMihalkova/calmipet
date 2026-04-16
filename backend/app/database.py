@@ -1,12 +1,18 @@
-import os 
-import sqlite3 
+import os
+import sqlite3
 from pathlib import Path
-from contextlib import contextmanager 
+from contextlib import contextmanager
  
 from app.auth_utils import hash_password, generate_salt 
  
-DATABASE_PATH: str = os.environ.get("DATABASE_URL", "data/calmipet.db") 
- 
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+DATABASE_PATH: str = os.environ.get(
+    "DATABASE_URL", str(_BACKEND_DIR / "data" / "calmipet.db")
+)
+if DATABASE_PATH.startswith("sqlite:///"):
+    DATABASE_PATH = DATABASE_PATH.replace("sqlite:///", "", 1)
+
 @contextmanager 
 def get_connection(): 
     """ 
@@ -15,8 +21,9 @@ def get_connection():
         with get_connection() as conn: 
             ... 
     """ 
-    Path(DATABASE_PATH).parent.mkdir(exist_ok=True)
-    conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False) 
+    db_path = Path(DATABASE_PATH)
+    db_path.parent.mkdir(exist_ok=True, parents=True)
+    conn = sqlite3.connect(str(db_path), check_same_thread=False)
     try: 
         yield conn 
     finally: 

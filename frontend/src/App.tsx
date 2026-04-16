@@ -266,14 +266,14 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Onboarding />} />
-            <Route path="/login" element={<Login onAuthSuccess={() => window.location.href = '/dashboard'} onNavigateToSignup={() => window.location.href = '/signup'} />} />
-            <Route path="/signup" element={<SignUp onAuthSuccess={() => window.location.href = '/dashboard'} onNavigateToLogin={() => window.location.href = '/login'} />} />
-            
+            <Route path="/login" element={<LoginRoute />} />
+            <Route path="/signup" element={<SignUpRoute />} />
+
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/readings" element={<ProtectedRoute><ReadingList /></ProtectedRoute>} />
             <Route path="/progress" element={<ProtectedRoute><ProgressView /></ProtectedRoute>} />
             <Route path="/account" element={<ProtectedRoute><AccountView /></ProtectedRoute>} />
-            
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
@@ -283,3 +283,23 @@ function App() {
 }
 
 export default App;
+
+const LoginRoute: React.FC = () => {
+  const navigate = useNavigate();
+  return (
+    <Login
+      onAuthSuccess={() => navigate('/dashboard')}
+      onNavigateToSignup={() => navigate('/signup')}
+    />
+  );
+};
+
+const SignUpRoute: React.FC = () => {
+  const navigate = useNavigate();
+  return (
+    <SignUp
+      onAuthSuccess={() => navigate('/dashboard')}
+      onNavigateToLogin={() => navigate('/login')}
+    />
+  );
+};
