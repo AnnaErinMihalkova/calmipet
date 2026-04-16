@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { breathingService } from '../services/api';
 import './ProgressView.css';
 
 type ProgressProps = {
@@ -14,8 +15,11 @@ const ProgressView: React.FC<ProgressProps> = ({ getStreak }) => {
   ]);
 
   useEffect(() => {
-    const fn = getStreak ?? (require('../services/api').wellnessService.getStreak as () => Promise<any>);
-    fn().then(setStreak).catch(() => setStreak(null));
+    const fn = getStreak ?? breathingService.getStreak;
+    Promise.resolve()
+      .then(() => fn())
+      .then(setStreak)
+      .catch(() => setStreak(null));
   }, []);
 
   const toggleRitual = (id: number) => {
@@ -26,7 +30,7 @@ const ProgressView: React.FC<ProgressProps> = ({ getStreak }) => {
     <div className="progress-view">
       <div className="streak-card">
         <div className="streak-info">
-          <h2>{streak ? `${streak.current_streak} Day Streak` : 'Loading...'}</h2>
+          <h2>{streak ? `${streak.streak ?? 0} Day Streak` : 'Loading...'}</h2>
           <div style={{ color: 'var(--text-secondary)' }}>Keep the momentum going!</div>
         </div>
         <div className="streak-icon">🔥</div>

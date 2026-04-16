@@ -104,6 +104,14 @@ const AccountView: React.FC = () => {
   const handleSavePet = async () => {
     try {
       await authService.updatePet(petType);
+      // Keep UI mascot in sync across the app.
+      try {
+        const raw = localStorage.getItem('hb_user_info');
+        const info = raw ? JSON.parse(raw) : {};
+        info.petAnimal = petType;
+        localStorage.setItem('hb_user_info', JSON.stringify(info));
+        window.dispatchEvent(new Event('calmipet-pet-changed'));
+      } catch {}
       alert('Companion updated successfully!');
     } catch (e) {
       alert('Failed to update companion');

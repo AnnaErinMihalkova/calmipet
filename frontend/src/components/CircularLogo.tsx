@@ -16,7 +16,21 @@ const CircularLogo: React.FC<CircularLogoProps> = ({ size = 120, className = '' 
       return 'raccoon';
     }
   };
-  const selected = getSelected();
+  const [selected, setSelected] = React.useState<string>(getSelected());
+
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'hb_user_info') setSelected(getSelected());
+    };
+    const onPetChanged = () => setSelected(getSelected());
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('calmipet-pet-changed', onPetChanged as EventListener);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('calmipet-pet-changed', onPetChanged as EventListener);
+    };
+  }, []);
+
   const emojiMap: Record<string, string> = { raccoon: '🦝', cat: '🐱', fox: '🦊', owl: '🦉' };
   return (
     <div className={`circular-logo ${className}`} style={{ width: size, height: size }}>
