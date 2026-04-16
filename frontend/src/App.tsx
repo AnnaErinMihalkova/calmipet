@@ -50,26 +50,31 @@ const BottomNav: React.FC = () => {
   return (
     <div
       style={{
-        flex: '0 0 auto',
-        width: '100%',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 8,
-        padding: 12,
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
-        background: 'var(--bg-secondary)',
-        borderTop: '1px solid var(--border-color)',
-        zIndex: 1000,
         position: 'fixed',
-        bottom: 0,
         left: 0,
         right: 0,
+        bottom: 0,
+        zIndex: 1000,
+        background: 'var(--bg-secondary)',
+        borderTop: '1px solid var(--border-color)',
       }}
     >
-      <IconBtn onClick={() => navigate('/dashboard')} emoji="🏠" label="Home" active={path === '/dashboard'} />
-      <IconBtn onClick={() => navigate('/readings')} emoji="📊" label="Readings" active={path === '/readings'} />
-      <IconBtn onClick={() => navigate('/progress')} emoji="🌱" label="Progress" active={path === '/progress'} />
-      <IconBtn onClick={() => navigate('/account')} emoji="👤" label="Account" active={path === '/account'} />
+      <div
+        style={{
+          maxWidth: 720,
+          margin: '0 auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 8,
+          padding: 12,
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+        }}
+      >
+        <IconBtn onClick={() => navigate('/dashboard')} emoji="🏠" label="Home" active={path === '/dashboard'} />
+        <IconBtn onClick={() => navigate('/readings')} emoji="📊" label="Readings" active={path === '/readings'} />
+        <IconBtn onClick={() => navigate('/progress')} emoji="🌱" label="Progress" active={path === '/progress'} />
+        <IconBtn onClick={() => navigate('/account')} emoji="👤" label="Account" active={path === '/account'} />
+      </div>
     </div>
   );
 };
