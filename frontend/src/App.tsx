@@ -198,6 +198,7 @@ const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = React.useState<number>(0);
   const [checkingAuth, setCheckingAuth] = React.useState<boolean>(true);
+  const [hasValidSession, setHasValidSession] = React.useState<boolean>(false);
 
   React.useEffect(() => {
     // Token presence alone isn't enough; validate it with /auth/me.
@@ -208,7 +209,7 @@ const Onboarding: React.FC = () => {
       return;
     }
     authService.getMe()
-      .then(() => navigate('/dashboard'))
+      .then(() => setHasValidSession(true))
       .catch(() => authService.logout())
       .finally(() => setCheckingAuth(false));
   }, [navigate]);
@@ -234,7 +235,11 @@ const Onboarding: React.FC = () => {
     <div className="app-shell">
       <div className="screen-header">
         <div style={{ fontSize: 24 }}>🐾</div>
-        <div className="skip" onClick={() => navigate('/login')}>Log In</div>
+        {hasValidSession ? (
+          <div className="skip" onClick={() => authService.logout()}>Log Out</div>
+        ) : (
+          <div className="skip" onClick={() => navigate('/login')}>Log In</div>
+        )}
       </div>
 
       <div className="onboarding-card">
@@ -257,9 +262,15 @@ const Onboarding: React.FC = () => {
       </div>
 
       <div className="primary-bottom-cta">
-        <button className="cta" onClick={() => navigate('/signup')} style={{ width: '100%', padding: 16, borderRadius: 16, background: 'var(--accent-primary)', color: 'white', fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-          Create Account
-        </button>
+        {hasValidSession ? (
+          <button className="cta" onClick={() => navigate('/dashboard')} style={{ width: '100%', padding: 16, borderRadius: 16, background: 'var(--accent-primary)', color: 'white', fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+            Continue
+          </button>
+        ) : (
+          <button className="cta" onClick={() => navigate('/signup')} style={{ width: '100%', padding: 16, borderRadius: 16, background: 'var(--accent-primary)', color: 'white', fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+            Create Account
+          </button>
+        )}
       </div>
     </div>
   );
