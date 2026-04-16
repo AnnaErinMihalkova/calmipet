@@ -1,7 +1,10 @@
 Param(
   [switch]$Tunnel
 )
-$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1'} | Select-Object -First 1 -ExpandProperty IPAddress)
+$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' -and $_.InterfaceAlias -notmatch 'vEthernet'} | Select-Object -First 1 -ExpandProperty IPAddress)
+if (!$ip) {
+  $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1'} | Select-Object -First 1 -ExpandProperty IPAddress)
+}
 if ($ip) {
   $Env:EXPO_PUBLIC_API_BASE_URL = "http://$ip:8000/api"
   $Env:EXPO_PUBLIC_WEB_URL = "http://$ip:3001/"

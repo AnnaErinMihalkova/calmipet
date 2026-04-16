@@ -31,6 +31,10 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3001", 
         ] 
     ) 
+
+    # For local mobile testing, we allow private network IPs via regex
+    CORS_ORIGIN_REGEX: str | None = os.environ.get("CORS_ORIGIN_REGEX", r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$")
+
  
     class Config: 
         env_file = ".env" 

@@ -81,6 +81,15 @@ def init_db() -> None:
         # ------------------------------------------------------------------ 
         # Migrations — fetch PRAGMA only once per table (#7) 
         # ------------------------------------------------------------------ 
+        users_cols = {
+            col[1]
+            for col in cursor.execute("PRAGMA table_info(users)").fetchall()
+        }
+        if "password" not in users_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN password TEXT DEFAULT ''")
+        if "salt" not in users_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN salt TEXT DEFAULT ''")
+
         gamification_cols = { 
             col[1] 
             for col in cursor.execute("PRAGMA table_info(gamification)").fetchall() 

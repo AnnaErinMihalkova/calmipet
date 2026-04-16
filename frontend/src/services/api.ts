@@ -4,7 +4,8 @@ import axios, { AxiosInstance } from 'axios';
 // ONE shared instance — consistent base URL, no trailing-slash ambiguity (#19) 
 // --------------------------------------------------------------------------- 
 // Support both REACT_APP_API_BASE and REACT_APP_API_BASE_URL for backward compatibility
-let API_BASE = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_BASE || 'http://localhost:8000/api'; 
+// Fallback uses the current hostname so mobile devices can connect to the local IP
+let API_BASE = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_BASE || `http://${window.location.hostname}:8000/api`; 
 // If it doesn't end with /api, append it
 if (!API_BASE.endsWith('/api') && !API_BASE.endsWith('/api/')) {
   API_BASE = `${API_BASE}/api`;
