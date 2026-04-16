@@ -23,8 +23,9 @@ const ProgressView: React.FC<ProgressProps> = ({ getStreak }) => {
   };
 
   return (
-    <div className="progress-view">
-      <div className="streak-card">
+    <div className="content" style={{ padding: 20 }}>
+      <div className="progress-view">
+        <div className="streak-card">
         <div className="streak-info">
           <h2>{streak ? `${streak.current_streak} Day Streak` : 'Loading...'}</h2>
           <div style={{ color: 'var(--text-secondary)' }}>Keep the momentum going!</div>
@@ -69,6 +70,7 @@ const ProgressView: React.FC<ProgressProps> = ({ getStreak }) => {
             <div className="milestone-badge" style={{ opacity: 0.5, filter: 'grayscale(1)' }}>🔒 7-Day Streak</div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

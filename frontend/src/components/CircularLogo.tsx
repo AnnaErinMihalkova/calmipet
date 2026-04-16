@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './CircularLogo.css';
 
 interface CircularLogoProps {
@@ -7,6 +7,8 @@ interface CircularLogoProps {
 }
 
 const CircularLogo: React.FC<CircularLogoProps> = ({ size = 120, className = '' }) => {
+  const [selected, setSelected] = useState<string>('raccoon');
+  
   const getSelected = () => {
     try {
       const raw = localStorage.getItem('hb_user_info');
@@ -16,7 +18,26 @@ const CircularLogo: React.FC<CircularLogoProps> = ({ size = 120, className = '' 
       return 'raccoon';
     }
   };
-  const selected = getSelected();
+
+  useEffect(() => {
+    setSelected(getSelected());
+    
+    const handleStorageChange = () => {
+      setSelected(getSelected());
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    const interval = setInterval(() => {
+      setSelected(getSelected());
+    }, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+  
   const emojiMap: Record<string, string> = { raccoon: '🦝', cat: '🐱', fox: '🦊', owl: '🦉' };
   return (
     <div className={`circular-logo ${className}`} style={{ width: size, height: size }}>
