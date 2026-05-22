@@ -16,7 +16,7 @@ class BackendTestCase(unittest.TestCase):
         test_db.parent.mkdir(exist_ok=True)
         if test_db.exists():
             test_db.unlink()
-        database.DATABASE_PATH = str(test_db)
+        os.environ["DATABASE_URL"] = f"sqlite:///{test_db.resolve()}"
         database.init_db()
         cls.client = TestClient(app)
         

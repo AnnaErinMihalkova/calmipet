@@ -4,19 +4,19 @@ services:
     name: calmipet-backend
     runtime: docker
     plan: free
-    # Render will look for Dockerfile inside this directory
+    # Render will look for the Dockerfile inside this directory
     rootDir: backend
     dockerfilePath: Dockerfile
     envVars:
-      - key: DATABASE_TYPE
-        value: postgres
+      # Set DATABASE_URL in Render dashboard to your Supabase PostgreSQL URI
+      # (Transaction pooler, port 6543 recommended for serverless).
       - key: DATABASE_URL
         value: ${DATABASE_URL}
       - key: CALMIPET_SKIP_RATE_LIMIT
         value: "1"
       - key: CORS_ORIGINS
         value: "https://calmipet-frontend.onrender.com,https://calmipet.onrender.com"
-    # Note: Using PostgreSQL for production deployment with persistent data storage
+    # Note: Using PostgreSQL (Supabase) for production deployment with persistent data storage
 
   # Frontend React Static Site
   - type: web
