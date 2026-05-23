@@ -81,6 +81,8 @@ def main() -> None:
             readings = src.execute("SELECT * FROM readings ORDER BY id").fetchall()
             reading_rows = []
             for r in readings:
+                if r["user_id"] is None or int(r["user_id"]) not in user_id_map:
+                    continue
                 reading_rows.append(
                     (
                         user_id_map[int(r["user_id"])],
@@ -105,10 +107,15 @@ def main() -> None:
             ).fetchall()
             session_rows = []
             for s in sessions:
+                # Skip if user_id is None or not in user_id_map
+                if s["user_id"] is None or int(s["user_id"]) not in user_id_map:
+                    continue
+                keys = s.keys()
+                duration = s["duration_seconds"] if "duration_seconds" in keys else (s["duration"] if "duration" in keys else 0)
                 session_rows.append(
                     (
                         user_id_map[int(s["user_id"])],
-                        s["duration"],
+                        duration,
                         bool(s["completed"]),
                         s["started_at"],
                     )
@@ -126,13 +133,18 @@ def main() -> None:
             gam = src.execute("SELECT * FROM gamification ORDER BY id").fetchall()
             gam_rows = []
             for g in gam:
+                if g["user_id"] is None or int(g["user_id"]) not in user_id_map:
+                    continue
+                keys = g.keys()
+                streak = g["current_streak"] if "current_streak" in keys else (g["streak"] if "streak" in keys else 0)
+                xp = g["xp"] if "xp" in keys else 0
                 gam_rows.append(
                     (
                         user_id_map[int(g["user_id"])],
-                        g["streak"],
-                        g["xp"],
-                        g["last_session_date"] if "last_session_date" in g.keys() else None,
-                        g["sessions_today"] if "sessions_today" in g.keys() else 0,
+                        streak,
+                        xp,
+                        g["last_session_date"] if "last_session_date" in keys else None,
+                        g["sessions_today"] if "sessions_today" in keys else 0,
                     )
                 )
             if gam_rows:

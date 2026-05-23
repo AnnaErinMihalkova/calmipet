@@ -5,7 +5,8 @@ import TrendChart from './TrendChart';
 import PetCard from './PetCard';
 import BreathingCoach from './BreathingCoach';
 import CircularLogo from './CircularLogo';
-import { startSimulator } from '../services/bracelet-simulator';
+import { startSimulator, stopSimulator } from '../services/bracelet-simulator';
+import BleDevicePanel from './BleDevicePanel';
 
 // Helper function to generate fallback readings (#11)
 const generateFallbackReadings = (): Reading[] => {
@@ -28,6 +29,7 @@ const Dashboard: React.FC = () => {
   const [coachOpen, setCoachOpen] = React.useState<boolean>(false);
   const [username, setUsername] = React.useState<string>('');
   const [authed, setAuthed] = React.useState<boolean>(false);
+  const [bleConnected, setBleConnected] = React.useState<boolean>(false);
 
   const handleLogout = async () => {
     try { await authService.logout(); } catch {}
@@ -74,11 +76,23 @@ const Dashboard: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!authed) return;
+    if (!authed || bleConnected) {
+      stopSimulator();
+      return;
+    }
     startSimulator(6000);
     const loop = setInterval(() => { fetchReadings(); }, 6000);
-    return () => { clearInterval(loop); };
-  }, [authed]);
+    return () => {
+      clearInterval(loop);
+      stopSimulator();
+    };
+  }, [authed, bleConnected]);
+
+  React.useEffect(() => {
+    if (!authed || !bleConnected) return;
+    const loop = setInterval(() => { fetchReadings(); }, 4000);
+    return () => clearInterval(loop);
+  }, [authed, bleConnected]);
 
   const addTestReading = async () => {
     try {
@@ -96,35 +110,17 @@ const Dashboard: React.FC = () => {
 
   const last = readings[readings.length - 1];
   const heartRate = last?.heart_rate ?? null;
-  const hrv = last?.stress_level ?? null;
+  const hrvMs = last?.hrv ?? null;
+  const stressScore = last?.stress_level ?? null;
   const heartRateInt = heartRate == null ? null : Math.round(heartRate);
 
-  // Improved stress algorithm taking both HR and HRV into account
-  const getStressInfo = (hr: number | null, hrvVal: number | null) => {
-    if (hr === null || hrvVal === null) return { label: 'Unknown', score: 50 };
-    
-    // Calculate an accurate 0-100 stress score based on both HR and HRV
-    // 1. Normalize HR (Resting range 60-100)
-    // Higher HR = higher stress component
-    const hrFactor = Math.max(0, Math.min(1, (hr - 60) / 40.0));
-    
-    // 2. Normalize HRV (Typical RMSSD range 20-80)
-    // Lower HRV = higher stress component
-    const hrvFactor = Math.max(0, Math.min(1, (80 - hrvVal) / 60.0));
-    
-    // 3. Weighted combination (HRV is generally a stronger indicator of stress than raw HR)
-    const stressScore = Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
-    
-    let label = 'Low';
-    if (stressScore > 65) label = 'High';
-    else if (stressScore > 35) label = 'Medium';
-    
-    return { label, score: stressScore };
-  };
-
-  const currentStress = getStressInfo(heartRate, hrv);
-  const stressLabel = currentStress.label;
-  const coherenceLabel = hrv == null ? 'Unknown' : hrv >= 60 ? 'High' : hrv >= 40 ? 'Medium' : 'Low';
+  const stressLabel = (() => {
+    if (stressScore == null) return 'Unknown';
+    if (stressScore >= 65) return 'High';
+    if (stressScore >= 35) return 'Medium';
+    return 'Low';
+  })();
+  const coherenceLabel = hrvMs == null ? 'Unknown' : hrvMs >= 60 ? 'High' : hrvMs >= 40 ? 'Medium' : 'Low';
 
   const [dailyOpen, setDailyOpen] = React.useState<boolean>(false);
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
@@ -138,9 +134,11 @@ const Dashboard: React.FC = () => {
   const dayBpmMin = todayReadings.length ? Math.min(...todayReadings.map(r => r.heart_rate || 0)) : null;
   const dayBpmMax = todayReadings.length ? Math.max(...todayReadings.map(r => r.heart_rate || 0)) : null;
   const dayMood = (() => {
-    const avgHrv = todayReadings.length ? (todayReadings.reduce((s, r) => s + (r.stress_level || 0), 0) / todayReadings.length) : null;
-    if (avgHrv == null) return 'Unknown';
-    return avgHrv < 30 ? 'High' : avgHrv < 50 ? 'Medium' : 'Low';
+    const avgStress = todayReadings.length
+      ? todayReadings.reduce((s, r) => s + (r.stress_level || 0), 0) / todayReadings.length
+      : null;
+    if (avgStress == null) return 'Unknown';
+    return avgStress >= 65 ? 'High' : avgStress >= 35 ? 'Medium' : 'Low';
   })();
 
   return (
@@ -182,9 +180,9 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div style={{ flex: 1, paddingLeft: 16 }}>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4 }}>HRV (Stress)</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4 }}>HRV</div>
             <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent-secondary)' }}>
-              {hrv ? `${Math.round(hrv)}` : '--'}
+              {hrvMs != null ? `${Math.round(hrvMs)}` : '--'}
               <span style={{ fontSize: 16, color: 'var(--text-secondary)', fontWeight: 600, marginLeft: 4 }}>ms</span>
             </div>
           </div>
@@ -203,7 +201,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <PetCard hrv={hrv} heartRate={heartRateInt} />
+      <PetCard hrv={hrvMs} heartRate={heartRateInt} stressScore={stressScore} />
 
       <div style={{
         background: 'var(--bg-secondary)',
@@ -266,7 +264,13 @@ const Dashboard: React.FC = () => {
         boxShadow: 'var(--shadow-lg)',
         marginBottom: 16,
       }}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Settings & Debug</div>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>ESP32 Bluetooth</div>
+        <BleDevicePanel
+          enabled={authed}
+          onConnectionChange={setBleConnected}
+          onReadingPosted={fetchReadings}
+        />
+        <div style={{ fontSize: 16, fontWeight: 700, margin: '20px 0 12px' }}>Settings & Debug</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <button
             onClick={addTestReading}

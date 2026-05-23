@@ -30,7 +30,7 @@ function generateReading() {
   return { 
     heart_rate: 60 + Math.random() * 40, 
     hrv: 20 + Math.random() * 60, 
-    stress_level: Math.random() * 80, 
+    spo2: 94 + Math.random() * 6, 
   }; 
 } 
  

@@ -49,6 +49,7 @@ export interface Reading {
 export interface NewReading { 
   heart_rate: number; 
   hrv?: number; 
+  spo2?: number;
   stress_level?: number; 
 } 
  

@@ -1,4 +1,6 @@
+import os
 from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
@@ -11,10 +13,11 @@ from app.database import (
     insert_returning_id,
     is_postgres,
 )
+from app.stress_engine import calculate_stress, level_to_stress_label, stress_from_reading
 
 router = APIRouter()
 
-RATE_LIMIT_SECONDS = 30
+RATE_LIMIT_SECONDS = int(os.environ.get("CALMIPET_RATE_LIMIT_SECONDS", "5"))
 
 
 def get_current_user_id(request: Request) -> int:
@@ -25,7 +28,13 @@ def get_current_user_id(request: Request) -> int:
     return uid
 
 
+def _rate_limit_skipped() -> bool:
+    return os.environ.get("CALMIPET_SKIP_RATE_LIMIT", "").lower() in ("1", "true", "yes")
+
+
 def _too_soon(user_id: int) -> bool:
+    if _rate_limit_skipped():
+        return False
     with get_connection() as conn:
         try:
             row = fetchone(
@@ -45,14 +54,67 @@ def _too_soon(user_id: int) -> bool:
             return False
 
 
+def _recent_hr_history(user_id: int, limit: int = 20) -> list[float]:
+    with get_connection() as conn:
+        rows = fetchall(
+            conn,
+            """
+            SELECT heart_rate FROM readings
+            WHERE user_id = ? AND heart_rate IS NOT NULL
+            ORDER BY id DESC LIMIT ?
+            """,
+            (user_id, limit),
+        )
+    if not rows:
+        return []
+    # Oldest first for HRV proxy calculation
+    return [float(r[0]) for r in reversed(rows)]
+
+
+def _baseline_hr(hr_history: list[float], fallback: float = 65.0) -> float:
+    if not hr_history:
+        return fallback
+    return sum(hr_history) / len(hr_history)
+
+
 class DataPayload(BaseModel):
     heart_rate: float
     hrv: float | None = None
+    spo2: float | None = None
     stress_level: float | None = None
+
+
+class AnalyzePayload(BaseModel):
+    heart_rate: float
+    hrv: float | None = None
+    spo2: float | None = None
 
 
 class BreathingSessionStart(BaseModel):
     pass
+
+
+def _compute_stress_for_user(
+    user_id: int,
+    heart_rate: float,
+    hrv: float | None = None,
+    spo2: float | None = None,
+) -> dict:
+    hr_history = _recent_hr_history(user_id)
+    baseline = _baseline_hr(hr_history)
+    result = calculate_stress(
+        heart_rate=heart_rate,
+        spo2=spo2 if spo2 is not None else 98.0,
+        hr_history=hr_history,
+        baseline_hr=baseline,
+        age=30,
+        hrv_rmssd=hrv,
+    )
+    return {
+        "result": result,
+        "baseline_hr": baseline,
+        "history_count": len(hr_history),
+    }
 
 
 @router.post("/api/data")
@@ -63,6 +125,19 @@ def add_data(
     if _too_soon(user_id):
         raise HTTPException(status_code=429, detail="Too many readings")
 
+    computed = _compute_stress_for_user(
+        user_id,
+        payload.heart_rate,
+        hrv=payload.hrv,
+        spo2=payload.spo2,
+    )
+    result = computed["result"]
+    stress_level = (
+        payload.stress_level
+        if payload.stress_level is not None
+        else result.score
+    )
+
     with get_connection() as conn:
         try:
             execute(
@@ -71,13 +146,21 @@ def add_data(
                 INSERT INTO readings (user_id, heart_rate, hrv, stress_level)
                 VALUES (?, ?, ?, ?)
                 """,
-                (user_id, payload.heart_rate, payload.hrv, payload.stress_level),
+                (user_id, payload.heart_rate, payload.hrv, stress_level),
             )
             conn.commit()
         except Exception as exc:
             raise HTTPException(status_code=500, detail="Database error") from exc
 
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "stress_level": round(stress_level, 1),
+        "stress_score": round(result.score, 1),
+        "stress_label": level_to_stress_label(result.level),
+        "level": result.level,
+        "baseline_hr": round(computed["baseline_hr"], 1),
+        "alerts": result.alerts,
+    }
 
 
 @router.get("/api/data")
@@ -108,30 +191,43 @@ def get_data(
 
 
 @router.post("/api/analyze")
-def analyze(
-    payload: DataPayload,
+def analyze_data(
+    payload: AnalyzePayload,
     user_id: int = Depends(get_current_user_id),
 ):
-    hrv = payload.hrv or payload.stress_level or payload.heart_rate
-    hr = payload.heart_rate
-
-    hr_factor = max(0.0, min(1.0, (hr - 60) / 40.0))
-    hrv_factor = max(0.0, min(1.0, (80 - hrv) / 60.0))
-    stress_score = (0.4 * hr_factor + 0.6 * hrv_factor) * 100
-
-    if stress_score > 65:
-        label = "stressed"
-    elif stress_score > 35:
-        label = "moderate"
-    else:
-        label = "calm"
-
+    computed = _compute_stress_for_user(
+        user_id,
+        payload.heart_rate,
+        hrv=payload.hrv,
+        spo2=payload.spo2,
+    )
+    result = computed["result"]
+    analysis = stress_from_reading(
+        {
+            "heart_rate": payload.heart_rate,
+            "spo2": payload.spo2 if payload.spo2 is not None else 98.0,
+            "hrv": payload.hrv,
+        },
+        {
+            "hr_history": _recent_hr_history(user_id),
+            "baseline_hr": computed["baseline_hr"],
+            "age": 30,
+        },
+    )
     return {
-        "user_id": user_id,
-        "stress_label": label,
-        "stress_score": round(stress_score),
-        "hrv": hrv,
-        "hr": hr,
+        "heart_rate": payload.heart_rate,
+        "spo2": payload.spo2 if payload.spo2 is not None else 98.0,
+        "hrv": payload.hrv,
+        "baseline_hr": round(computed["baseline_hr"], 2),
+        "score": round(result.score / 100.0, 3),
+        "stress_score": round(result.score, 1),
+        "level": result.level,
+        "label": result.level,
+        "stress_label": analysis["stress_label"],
+        "confidence": result.confidence,
+        "factors": result.factors,
+        "alerts": result.alerts,
+        "history_count": computed["history_count"],
     }
 
 

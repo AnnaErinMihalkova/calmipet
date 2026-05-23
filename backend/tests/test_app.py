@@ -72,10 +72,15 @@ class BackendTestCase(unittest.TestCase):
         self.assertIn("heart_rate", rows[0])
 
     def test_analyze_endpoint(self):
-        r = self.client.post("/api/analyze", json={"heart_rate": 85, "hrv": 20}, headers={"Authorization": f"Bearer {self.token}"})
+        r = self.client.post(
+            "/api/analyze",
+            json={"heart_rate": 110, "spo2": 88},
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
         self.assertEqual(r.status_code, 200)
         payload = r.json()
         self.assertEqual(payload.get("stress_label"), "stressed")
+        self.assertEqual(payload.get("level"), "critical")
 
     def test_breathing_sessions(self):
         r = self.client.post("/api/breathing/start", headers={"Authorization": f"Bearer {self.token}"})

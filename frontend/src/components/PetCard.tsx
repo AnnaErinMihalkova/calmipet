@@ -2,11 +2,33 @@ import React from 'react';
 import { breathingService } from '../services/api';
 import AnimatedPetGraphic from './AnimatedPetGraphic';
 
-const PetCard: React.FC = () => {
+type PetCardProps = {
+  hrv?: number | null;
+  heartRate?: number | null;
+  stressScore?: number | null;
+};
+
+function resolveStressScore(
+  stressScore: number | null | undefined,
+  heartRate: number | null | undefined,
+  hrv: number | null | undefined,
+): number | null {
+  if (stressScore != null) return Math.round(stressScore);
+  if (heartRate == null || hrv == null) return null;
+  const hrFactor = Math.max(0, Math.min(1, (heartRate - 60) / 40));
+  const hrvFactor = Math.max(0, Math.min(1, (80 - hrv) / 60));
+  return Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
+}
+
+const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate, stressScore }) => {
   const [pet, setPet] = React.useState<any>(null);
   const [streak, setStreak] = React.useState<any>(null);
   const [ready, setReady] = React.useState(false);
   const [tick, setTick] = React.useState(0);
+
+  const resolvedStress = resolveStressScore(stressScore, heartRate, hrv);
+  const calmness =
+    resolvedStress == null ? 0 : Math.max(0, Math.min(100, 100 - resolvedStress));
 
   const load = async () => {
     try {
@@ -40,10 +62,13 @@ const PetCard: React.FC = () => {
     }
   };
   const selected = getSelected();
-  const moodLabel = pet ? pet.mood : ready ? 'calm' : null;
-  const stressed = (pet && pet.mood === 'stressed') || (pet && pet.mood_score !== undefined && pet.mood_score < 0.4);
-  const mood: 'calm' | 'focused' | 'stressed' = stressed ? 'stressed' : moodLabel === 'focused' ? 'focused' : 'calm';
-  const calmness = pet && typeof pet.mood_score === 'number' ? Math.max(0, Math.min(100, Math.round(pet.mood_score * 100))) : 0;
+  const stressed = resolvedStress != null && resolvedStress >= 65;
+  const focused = resolvedStress != null && resolvedStress >= 35 && resolvedStress < 65;
+  const mood: 'calm' | 'focused' | 'stressed' = stressed
+    ? 'stressed'
+    : focused
+      ? 'focused'
+      : 'calm';
 
   const getPetTheme = (animal: string, isStressed: boolean) => {
     if (isStressed) {
@@ -172,7 +197,7 @@ const PetCard: React.FC = () => {
           }} />
         </div>
         <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: theme.accent }}>
-          {pet ? `Mood: ${pet.mood}` : ready ? 'Mood: calm' : 'Loading...'}
+          {resolvedStress == null ? (ready ? 'Mood: calm' : 'Loading...') : `Mood: ${mood}`}
         </div>
       </div>
     </div>
