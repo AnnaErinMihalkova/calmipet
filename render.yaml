@@ -32,6 +32,4 @@ services:
         destination: /index.html
     envVars:
       - key: REACT_APP_API_BASE_URL
-        # This will be your backend URL (e.g., https://calmipet-backend.onrender.com/api/)
-        # You should update this after deploying the backend.
         value: https://calmipet-backend.onrender.com/api/

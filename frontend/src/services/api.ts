@@ -4,24 +4,29 @@ import axios, { AxiosInstance } from 'axios';
 // ONE shared instance — consistent base URL, no trailing-slash ambiguity (#19) 
 // --------------------------------------------------------------------------- 
 // Support both REACT_APP_API_BASE and REACT_APP_API_BASE_URL for backward compatibility
-let API_BASE = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_BASE;
+let API_BASE = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_BASE || '';
 
 if (!API_BASE) {
-  // If deployed to Render without env vars properly synced, fallback to the known backend URL
-  if (window.location.hostname === 'calmipet.onrender.com' || window.location.hostname === 'calmipet-frontend.onrender.com') {
-    API_BASE = 'https://calmipet-backend.onrender.com/api';
+  const hostname = window.location.hostname;
+  if (hostname.includes('onrender.com')) {
+    API_BASE = 'https://calmipet-backend.onrender.com/api/';
   } else {
     // Local development fallback
-    API_BASE = `http://${window.location.hostname}:8000/api`;
+    API_BASE = `http://${hostname}:8000/api/`;
   }
 }
 
-// If it doesn't end with /api, append it
-if (!API_BASE.endsWith('/api') && !API_BASE.endsWith('/api/')) {
-  API_BASE = API_BASE.endsWith('/') ? `${API_BASE}api/` : `${API_BASE}/api/`;
-} else if (!API_BASE.endsWith('/')) {
+// Ensure it ends with /api/ correctly
+if (API_BASE.includes('onrender.com') && !API_BASE.includes('/api')) {
+    API_BASE = API_BASE.endsWith('/') ? `${API_BASE}api/` : `${API_BASE}/api/`;
+}
+
+// Final trailing slash safety
+if (API_BASE && !API_BASE.endsWith('/')) {
   API_BASE = `${API_BASE}/`;
 }
+
+console.log('[CalmiPet] API Base URL:', API_BASE);
 
 export const apiClient: AxiosInstance = axios.create({ 
   baseURL: API_BASE, 
