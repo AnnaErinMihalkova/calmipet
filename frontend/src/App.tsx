@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from './components/ThemeToggle';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { VitalsProvider } from './contexts/VitalsContext';
 import SignUp from './components/SignUp';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -90,7 +91,19 @@ const AccountView: React.FC = () => {
     authService.getMe()
       .then((u) => {
         setUser(u);
-        setPetType(u.pet_type || 'raccoon');
+        const backendPet = u.pet_type || 'raccoon';
+        setPetType(backendPet);
+        
+        // Sync to localStorage
+        try {
+          const raw = localStorage.getItem('hb_user_info');
+          const info = raw ? JSON.parse(raw) : {};
+          if (info.petAnimal !== backendPet) {
+            info.petAnimal = backendPet;
+            localStorage.setItem('hb_user_info', JSON.stringify(info));
+            window.dispatchEvent(new Event('calmipet-pet-changed'));
+          }
+        } catch {}
       })
       .catch(() => navigate('/login'))
       .finally(() => setLoading(false));
@@ -300,23 +313,25 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function App() {
   return (
     <ThemeProvider>
-      <div className="App">
-        <ThemeToggle />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Onboarding />} />
-            <Route path="/login" element={<LoginRoute />} />
-            <Route path="/signup" element={<SignUpRoute />} />
+      <VitalsProvider>
+        <div className="App">
+          <ThemeToggle />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Onboarding />} />
+              <Route path="/login" element={<LoginRoute />} />
+              <Route path="/signup" element={<SignUpRoute />} />
 
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/readings" element={<ProtectedRoute><ReadingList /></ProtectedRoute>} />
-            <Route path="/progress" element={<ProtectedRoute><ProgressView /></ProtectedRoute>} />
-            <Route path="/account" element={<ProtectedRoute><AccountView /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/readings" element={<ProtectedRoute><ReadingList /></ProtectedRoute>} />
+              <Route path="/progress" element={<ProtectedRoute><ProgressView /></ProtectedRoute>} />
+              <Route path="/account" element={<ProtectedRoute><AccountView /></ProtectedRoute>} />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </div>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </div>
+      </VitalsProvider>
     </ThemeProvider>
   );
 }

@@ -18,22 +18,19 @@ const CircularLogo: React.FC<CircularLogoProps> = ({ size = 120, className = '' 
       return 'raccoon';
     }
   };
-useEffect(() => {
+  useEffect(() => {
     setSelected(getSelected());
     
-    const handleStorageChange = () => {
+    const handlePetChanged = () => {
       setSelected(getSelected());
     };
     
-    window.addEventListener('storage', handleStorageChange);
-    
-    const interval = setInterval(() => {
-      setSelected(getSelected());
-    }, 1000);
+    window.addEventListener('calmipet-pet-changed', handlePetChanged);
+    window.addEventListener('storage', handlePetChanged);
     
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
+      window.removeEventListener('calmipet-pet-changed', handlePetChanged);
+      window.removeEventListener('storage', handlePetChanged);
     };
   }, []);
   const emojiMap: Record<string, string> = { raccoon: '🦝', cat: '🐱', fox: '🦊', owl: '🦉' };

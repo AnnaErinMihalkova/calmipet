@@ -13,12 +13,14 @@ export const CALMIPET_BLE = {
 
 const SERVICE_UUID = CALMIPET_BLE.serviceUuid;
 const CHARACTERISTIC_UUID = CALMIPET_BLE.readingCharUuid;
-const POST_INTERVAL_MS = 5000;
+// Safe margin: backend limit is 5s, we use 10s to avoid 429 errors and reduce load
+const POST_INTERVAL_MS = 10000; 
 
 export interface BleReading {
   heart_rate: number;
   spo2: number;
   hrv: number;
+  stress_level?: number;
 }
 
 /** @deprecated use BleReading */
@@ -217,6 +219,11 @@ function handleNotification(event: Event) {
     spo2: parsed.spo2 ?? 0,
     hrv: parsed.hrv ?? 0,
   };
+
+  // Simple frontend stress calculation for live feedback
+  const hrFactor = Math.max(0, Math.min(1, (reading.heart_rate - 60) / 40));
+  const hrvFactor = Math.max(0, Math.min(1, (80 - reading.hrv) / 60));
+  reading.stress_level = Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
 
   onReadingCb?.(reading);
 

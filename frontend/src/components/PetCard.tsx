@@ -1,6 +1,7 @@
 import React from 'react';
 import { breathingService } from '../services/api';
 import AnimatedPetGraphic from './AnimatedPetGraphic';
+import { useVitals } from '../contexts/VitalsContext';
 
 type PetCardProps = {
   hrv?: number | null;
@@ -20,16 +21,19 @@ function resolveStressScore(
   return Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
 }
 
-const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate, stressScore }) => {
+const PetCard: React.FC<PetCardProps> = ({ hrv: propHrv, heartRate: propHeartRate, stressScore: propStressScore }) => {
   const [streak, setStreak] = React.useState<any>(null);
+  const [selected, setSelected] = React.useState<string>('raccoon');
+  const { vitals } = useVitals();
+
+  // Prefer props if passed, otherwise use global vitals context
+  const hrv = propHrv !== undefined ? propHrv : vitals.hrv;
+  const heartRate = propHeartRate !== undefined ? propHeartRate : vitals.heartRate;
+  const stressScore = propStressScore !== undefined ? propStressScore : vitals.stressLevel;
 
   const resolvedStress = resolveStressScore(stressScore, heartRate, hrv);
   const calmness =
     resolvedStress == null ? 0 : Math.max(0, Math.min(100, 100 - resolvedStress));
-
-  React.useEffect(() => {
-    breathingService.getStreak().then(setStreak).catch(() => {});
-  }, []);
 
   const getSelected = () => {
     try {
@@ -40,7 +44,22 @@ const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate, stressScore }) => {
       return 'raccoon';
     }
   };
-  const selected = getSelected();
+
+  React.useEffect(() => {
+    breathingService.getStreak().then(setStreak).catch(() => {});
+    
+    // Set initial pet and listen for changes
+    setSelected(getSelected());
+    const handlePetChanged = () => setSelected(getSelected());
+    window.addEventListener('calmipet-pet-changed', handlePetChanged);
+    window.addEventListener('storage', handlePetChanged);
+    
+    return () => {
+      window.removeEventListener('calmipet-pet-changed', handlePetChanged);
+      window.removeEventListener('storage', handlePetChanged);
+    };
+  }, []);
+
   const stressed = resolvedStress != null && resolvedStress >= 65;
   const focused = resolvedStress != null && resolvedStress >= 35 && resolvedStress < 65;
   const mood: 'calm' | 'focused' | 'stressed' = stressed

@@ -167,13 +167,20 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
         const emailErr = data.email ? (Array.isArray(data.email) ? data.email[0] : data.email) : '';
         const userErr = data.username ? (Array.isArray(data.username) ? data.username[0] : data.username) : '';
         const passErr = data.password ? (Array.isArray(data.password) ? data.password[0] : data.password) : '';
+        
         if (emailErr) setErrors({ email: emailErr });
         else if (userErr) setErrors({ username: userErr });
         else if (passErr) setErrors({ password: passErr });
-        else if (detail) setErrors({ email: detail });
-        else setErrors({ email: 'An error occurred. Please try again.' });
+        else if (detail) {
+          // If it's a generic detail error, show it on the email field but be more descriptive
+          setErrors({ email: detail });
+        } else {
+          setErrors({ email: 'Registration failed. Please check your details and try again.' });
+        }
       } else {
-        const msg = typeof error?.message === 'string' ? error.message : 'An error occurred. Please try again.';
+        const msg = error?.message === 'Network Error' 
+          ? 'Network error: Unable to connect to the server. Please check your internet connection.'
+          : (typeof error?.message === 'string' ? error.message : 'An unexpected error occurred.');
         setErrors({ email: msg });
       }
     } finally {

@@ -10,8 +10,11 @@ if (!API_BASE) {
   const hostname = window.location.hostname;
   if (hostname.includes('onrender.com')) {
     API_BASE = 'https://calmipet-backend.onrender.com/api/';
+  } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    // Force localhost for IDE preview to avoid network suspension issues
+    API_BASE = `http://localhost:8000/api/`;
   } else {
-    // Local development fallback
+    // Local development fallback for mobile/other devices
     API_BASE = `http://${hostname}:8000/api/`;
   }
 }
@@ -41,6 +44,20 @@ apiClient.interceptors.request.use((config) => {
   } 
   return config; 
 }); 
+
+// Global error handler to catch network-level suspensions (#27)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Completely silence the console for network-level suspensions in development
+    if (error.code === 'ERR_NETWORK_IO_SUSPENDED' || !error.response) {
+      // Return a special rejected promise that Dashboard can check
+      error.isSilent = true; 
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
  
 // --------------------------------------------------------------------------- 
 // Types 
@@ -49,6 +66,7 @@ export interface Reading {
   id: number; 
   heart_rate: number; 
   hrv: number; 
+  spo2?: number;
   stress_level: number; 
   timestamp: string; 
 } 

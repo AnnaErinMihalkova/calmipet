@@ -5,22 +5,8 @@ import TrendChart from './TrendChart';
 import PetCard from './PetCard';
 import BreathingCoach from './BreathingCoach';
 import CircularLogo from './CircularLogo';
-import { startSimulator, stopSimulator } from '../services/bracelet-simulator';
 import BleDevicePanel from './BleDevicePanel';
-
-// Helper function to generate fallback readings (#11)
-const generateFallbackReadings = (): Reading[] => {
-  const now = Date.now();
-  const count = 12;
-  const intervalMs = 5 * 60 * 1000;
-  const baseHr = 78;
-  const baseHrv = 40;
-  return Array.from({ length: count }, (_, i) => ({
-    heart_rate: Math.max(60, Math.min(100, Math.round(baseHr + (Math.random() - 0.5) * 12))),
-    stress_level: Math.max(20, Math.min(80, Math.round(baseHrv + (Math.random() - 0.5) * 16))),
-    timestamp: new Date(now - (count - i) * intervalMs).toISOString(),
-  })) as Reading[];
-};
+import { useVitals } from '../contexts/VitalsContext';
 
 const Dashboard: React.FC = () => {
   const [readings, setReadings] = React.useState<Reading[]>([]);
@@ -30,6 +16,8 @@ const Dashboard: React.FC = () => {
   const [username, setUsername] = React.useState<string>('');
   const [authed, setAuthed] = React.useState<boolean>(false);
   const [bleConnected, setBleConnected] = React.useState<boolean>(false);
+  const { vitals } = useVitals();
+  const isFetching = React.useRef(false);
 
   const handleLogout = async () => {
     try { await authService.logout(); } catch {}
@@ -47,20 +35,26 @@ const Dashboard: React.FC = () => {
   };
 
   const fetchReadings = async () => {
+    if (isFetching.current) return;
     try {
+      isFetching.current = true;
       setLoading(true);
       const data = await readingService.getReadings();
-      if (!Array.isArray(data) || data.length === 0) {
-        setReadings(generateFallbackReadings());
-      } else {
+      if (Array.isArray(data)) {
         setReadings(data);
       }
       setError(null);
-    } catch (e) {
-      setReadings(generateFallbackReadings());
+    } catch (e: any) {
+      // Suppress network suspension noise in UI
+      if (e.code === 'ERR_NETWORK_IO_SUSPENDED') {
+        console.debug('[Dashboard] Network suspended, skipping this update.');
+      } else {
+        console.warn('[Dashboard] Fetch error:', e);
+      }
       setError(null);
     } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   };
 
@@ -69,6 +63,19 @@ const Dashboard: React.FC = () => {
       setUsername(u.username);
       setAuthed(true);
       fetchReadings();
+      
+      // Sync pet type to localStorage if it's different
+      try {
+        const raw = localStorage.getItem('hb_user_info');
+        const info = raw ? JSON.parse(raw) : {};
+        if (u.pet_type && info.petAnimal !== u.pet_type) {
+          info.petAnimal = u.pet_type;
+          localStorage.setItem('hb_user_info', JSON.stringify(info));
+          window.dispatchEvent(new Event('calmipet-pet-changed'));
+        }
+      } catch (e) {
+        console.warn('[Dashboard] Failed to sync pet info:', e);
+      }
     }).catch(() => {
       setAuthed(false);
       fetchReadings();
@@ -76,32 +83,23 @@ const Dashboard: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!authed || bleConnected) {
-      stopSimulator();
-      return;
-    }
-    startSimulator(6000);
-    const loop = setInterval(() => { fetchReadings(); }, 6000);
-    return () => {
-      clearInterval(loop);
-      stopSimulator();
-    };
-  }, [authed, bleConnected]);
-
-  React.useEffect(() => {
-    if (!authed || !bleConnected) return;
-    const loop = setInterval(() => { fetchReadings(); }, 4000);
+    if (!authed) return;
+    
+    // If Bluetooth is connected, the BleDevicePanel will trigger fetchReadings()
+    // via onReadingPosted whenever a new data point is saved. 
+    // We only need a slow fallback poll for other background updates.
+    const interval = bleConnected ? 30000 : 10000;
+    
+    const loop = setInterval(() => { fetchReadings(); }, interval);
     return () => clearInterval(loop);
   }, [authed, bleConnected]);
 
   const addTestReading = async () => {
     try {
-      const created = await readingService.createReading({
+      await readingService.createReading({
         heart_rate: Math.floor(Math.random() * 40) + 60,
         stress_level: Math.floor(Math.random() * 50) + 20,
       });
-      // Optimistic update
-      setReadings((r) => [...r, { ...created, id: Date.now(), hrv: 0, heart_rate: 60, stress_level: 20, timestamp: new Date().toISOString() }]);
       fetchReadings();
     } catch (e) {
       setError('Failed to create reading');
@@ -109,17 +107,23 @@ const Dashboard: React.FC = () => {
   };
 
   const last = readings[readings.length - 1];
-  const heartRate = last?.heart_rate ?? null;
-  const hrvMs = last?.hrv ?? null;
-  const stressScore = last?.stress_level ?? null;
+  
+  // Prefer live vitals from Bluetooth if connected
+  const heartRate = bleConnected ? vitals.heartRate : (last?.heart_rate ?? null);
+  const hrvMs = bleConnected ? vitals.hrv : (last?.hrv ?? null);
+  const stressScore = bleConnected ? vitals.stressLevel : (last?.stress_level ?? null);
+  const spo2Value = bleConnected ? vitals.spo2 : null;
+  
   const heartRateInt = heartRate == null ? null : Math.round(heartRate);
 
   const stressLabel = (() => {
-    if (stressScore == null) return 'Unknown';
-    if (stressScore >= 65) return 'High';
-    if (stressScore >= 35) return 'Medium';
+    const score = stressScore;
+    if (score == null) return 'Unknown';
+    if (score >= 65) return 'High';
+    if (score >= 35) return 'Medium';
     return 'Low';
   })();
+  
   const coherenceLabel = hrvMs == null ? 'Unknown' : hrvMs >= 60 ? 'High' : hrvMs >= 40 ? 'Medium' : 'Low';
 
   const [dailyOpen, setDailyOpen] = React.useState<boolean>(false);
@@ -176,13 +180,38 @@ const Dashboard: React.FC = () => {
         padding: 20,
         boxShadow: 'var(--shadow-lg)',
         marginBottom: 16,
+        position: 'relative',
       }}>
+        {bleConnected && (
+          <div style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            background: 'var(--accent-primary)',
+            color: 'white',
+            fontSize: 10,
+            fontWeight: 800,
+            padding: '2px 8px',
+            borderRadius: 8,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+          }}>
+            Live
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ flex: 1, borderRight: '1px solid var(--border-color)', paddingRight: 16 }}>
             <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4 }}>Heart Rate</div>
             <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent-primary)' }}>
               {heartRateInt == null ? '--' : `${heartRateInt}`}
               <span style={{ fontSize: 16, color: 'var(--text-secondary)', fontWeight: 600, marginLeft: 4 }}>BPM</span>
+            </div>
+          </div>
+          <div style={{ flex: 1, borderRight: '1px solid var(--border-color)', paddingLeft: 16, paddingRight: 16 }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4 }}>SpO₂</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: '#ef4444' }}>
+              {spo2Value != null ? `${spo2Value}` : '--'}
+              <span style={{ fontSize: 16, color: 'var(--text-secondary)', fontWeight: 600, marginLeft: 4 }}>%</span>
             </div>
           </div>
           <div style={{ flex: 1, paddingLeft: 16 }}>

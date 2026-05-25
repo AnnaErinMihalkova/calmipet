@@ -90,6 +90,16 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup, onAuthSuccess }) => {
           setErrors({ email: Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors[0] : errorData.non_field_errors });
         } else if (errorData.error) {
           setErrors({ email: errorData.error });
+        } else if (errorData.detail) {
+          const detail = Array.isArray(errorData.detail)
+            ? errorData.detail[0]?.msg || errorData.detail[0]
+            : errorData.detail;
+          setErrors({
+            email:
+              detail === 'Invalid credentials'
+                ? 'Invalid email or password'
+                : String(detail),
+          });
         } else {
           setErrors({ email: 'Invalid email or password' });
         }

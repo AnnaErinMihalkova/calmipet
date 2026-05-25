@@ -13,7 +13,13 @@ from app.database import (
     insert_returning_id,
     is_postgres,
 )
-from app.auth_utils import hash_password, generate_salt, make_token_for_user
+from app.auth_utils import (
+    hash_password,
+    generate_salt,
+    make_token_for_user,
+    verify_password,
+    is_legacy_password_record,
+)
 from app.routers.sensor import router as sensor_router, get_current_user_id
 
 app = FastAPI(title="CalmIPet API")
@@ -78,6 +84,8 @@ def auth_register(payload: RegisterPayload):
     with get_connection() as conn:
         existing = fetchone(conn, "SELECT id FROM users WHERE email = ?", (email,))
         if existing:
+            # Explicitly log that this email is already in the database to help debugging
+            print(f"[AUTH] Registration attempt for already-registered email: {email}")
             raise HTTPException(status_code=400, detail="Email already registered")
         try:
             user_id = insert_returning_id(
@@ -90,14 +98,15 @@ def auth_register(payload: RegisterPayload):
             )
             conn.commit()
         except IntegrityError as exc:
-            msg = str(exc)
-            if "users.email" in msg or "unique" in msg.lower():
+            msg = str(exc).lower()
+            if "email" in msg or "unique" in msg:
+                print(f"[AUTH] IntegrityError (likely duplicate email): {exc}")
                 raise HTTPException(status_code=400, detail="Email already registered")
             print(f"[ERROR] Registration integrity error: {exc}")
-            raise HTTPException(status_code=500, detail="Registration failed")
+            raise HTTPException(status_code=500, detail=f"Registration failed: {exc}")
         except Exception as exc:
             print(f"[ERROR] Registration failed: {exc}")
-            raise HTTPException(status_code=500, detail="Registration failed")
+            raise HTTPException(status_code=500, detail=f"Registration failed: {type(exc).__name__}")
     token = make_token_for_user(user_id)
     return {"token": token, "user_id": user_id}
 
@@ -116,12 +125,37 @@ def auth_login(payload: LoginPayload):
         )
     if not row:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    user_id, legacy_hash, legacy_salt, new_hash, new_salt = row
-    stored_hash, salt = (
-        (legacy_hash, legacy_salt) if legacy_hash and legacy_salt else (new_hash, new_salt)
-    )
-    if hash_password(payload.password, salt) != stored_hash:
+    user_id, password_hash, password_salt, password, salt = row
+    credential_pairs = []
+    if password_hash and password_salt:
+        credential_pairs.append((password_hash, password_salt))
+    if password and salt and (password, salt) not in credential_pairs:
+        credential_pairs.append((password, salt))
+    if not credential_pairs:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not any(
+        verify_password(payload.password, pair_salt, pair_hash)
+        for pair_hash, pair_salt in credential_pairs
+    ):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Upgrade legacy PBKDF2 records to the current hash format on successful login.
+    used_hash, used_salt = credential_pairs[0]
+    if is_legacy_password_record(used_hash):
+        new_salt = generate_salt()
+        new_hash = hash_password(payload.password, new_salt)
+        with get_connection() as conn:
+            execute(
+                conn,
+                """
+                UPDATE users
+                SET password_hash = ?, password_salt = ?, password = ?, salt = ?
+                WHERE id = ?
+                """,
+                (new_hash, new_salt, new_hash, new_salt, user_id),
+            )
+            conn.commit()
+
     token = make_token_for_user(user_id)
     return {"token": token, "user_id": user_id}
 

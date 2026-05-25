@@ -214,6 +214,20 @@ def _init_sqlite(cursor) -> None:
             "ALTER TABLE gamification ADD COLUMN sessions_today INTEGER DEFAULT 0"
         )
 
+def _repair_empty_password_columns(cursor) -> None:
+    """Copy legacy hash columns into password/salt when a migration left them empty."""
+    cursor.execute(
+        adapt_sql(
+            """
+            UPDATE users
+            SET password = password_hash, salt = password_salt
+            WHERE (password IS NULL OR password = '')
+              AND password_hash IS NOT NULL AND password_hash != ''
+              AND password_salt IS NOT NULL AND password_salt != ''
+            """
+        )
+    )
+
 
 def init_db() -> None:
     with get_connection() as conn:
@@ -222,6 +236,7 @@ def init_db() -> None:
             _init_postgres(cursor)
         else:
             _init_sqlite(cursor)
+        _repair_empty_password_columns(cursor)
 
         if os.environ.get("CALMIPET_SEED_DEMO", "").lower() in ("1", "true", "yes"):
             _seed_demo_user(cursor)

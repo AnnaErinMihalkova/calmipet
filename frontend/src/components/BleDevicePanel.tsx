@@ -9,6 +9,7 @@ import {
   onStatus,
   BleReading,
 } from '../services/ble-device';
+import { useVitals } from '../contexts/VitalsContext';
 
 type Props = {
   enabled?: boolean;
@@ -16,6 +17,7 @@ type Props = {
   /** @deprecated use onBleConnected */
   onConnectionChange?: (connected: boolean) => void;
   onReadingPosted?: () => void;
+  onLiveReading?: (reading: BleReading) => void;
 };
 
 const BleDevicePanel: React.FC<Props> = ({
@@ -23,12 +25,14 @@ const BleDevicePanel: React.FC<Props> = ({
   onBleConnected,
   onConnectionChange,
   onReadingPosted,
+  onLiveReading,
 }) => {
   const [connected, setConnected] = useState(false);
   const [bpm, setBpm] = useState<number | null>(null);
   const [spo2, setSpo2] = useState<number | null>(null);
   const [hrv, setHrv] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { setVitals } = useVitals();
   const [busy, setBusy] = useState(false);
 
   const supported = isBleSupported();
@@ -53,6 +57,16 @@ const BleDevicePanel: React.FC<Props> = ({
       if (r.heart_rate > 0) setBpm(r.heart_rate);
       if (r.spo2 > 0) setSpo2(Math.round(r.spo2));
       if (r.hrv > 0) setHrv(r.hrv);
+      
+      // Update global vitals
+      setVitals({
+        heartRate: r.heart_rate > 0 ? r.heart_rate : undefined,
+        hrv: r.hrv > 0 ? r.hrv : undefined,
+        spo2: r.spo2 > 0 ? Math.round(r.spo2) : undefined,
+        stressLevel: r.stress_level,
+      });
+
+      onLiveReading?.(r);
     });
 
     onPosted(() => {
