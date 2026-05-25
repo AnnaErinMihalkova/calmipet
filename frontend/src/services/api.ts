@@ -18,7 +18,9 @@ if (!API_BASE) {
 
 // If it doesn't end with /api, append it
 if (!API_BASE.endsWith('/api') && !API_BASE.endsWith('/api/')) {
-  API_BASE = `${API_BASE}/api`;
+  API_BASE = API_BASE.endsWith('/') ? `${API_BASE}api/` : `${API_BASE}/api/`;
+} else if (!API_BASE.endsWith('/')) {
+  API_BASE = `${API_BASE}/`;
 }
 
 export const apiClient: AxiosInstance = axios.create({ 
@@ -58,14 +60,14 @@ export interface NewReading {
 // --------------------------------------------------------------------------- 
 export const readingService = { 
   getReadings: async (limit = 50): Promise<Reading[]> => { 
-    const { data } = await apiClient.get<Reading[]>('/data', { 
+    const { data } = await apiClient.get<Reading[]>('data', { 
       params: { limit }, 
     }); 
     return data; 
   }, 
  
   createReading: async (payload: NewReading): Promise<{ status: string }> => { 
-    const { data } = await apiClient.post('/data', payload); 
+    const { data } = await apiClient.post('data', payload); 
     return data; 
   }, 
  
@@ -102,7 +104,7 @@ export const readingService = {
 // --------------------------------------------------------------------------- 
 export const analysisService = { 
   analyze: async (payload: NewReading) => { 
-    const { data } = await apiClient.post('/analyze', payload); 
+    const { data } = await apiClient.post('analyze', payload); 
     return data; 
   }, 
 }; 
@@ -112,17 +114,22 @@ export const analysisService = {
 // --------------------------------------------------------------------------- 
 export const breathingService = { 
   startSession: async (): Promise<{ id: number }> => { 
-    const { data } = await apiClient.post('/breathing/start'); 
+    const { data } = await apiClient.post('breathing/start'); 
     return data; 
   }, 
  
   completeSession: async (sessionId: number): Promise<{ id: number; completed: boolean }> => { 
-    const { data } = await apiClient.post(`/breathing/${sessionId}/complete`); 
+    const { data } = await apiClient.post(`breathing/${sessionId}/complete`); 
     return data; 
   }, 
  
   getStreak: async () => { 
-    const { data } = await apiClient.get('/breathing/streak'); 
+    const { data } = await apiClient.get('breathing/streak'); 
     return data; 
   }, 
-};
+}; 
+ 
+// --------------------------------------------------------------------------- 
+// One-off instance for direct raw calls if needed 
+// --------------------------------------------------------------------------- 
+export default apiClient;

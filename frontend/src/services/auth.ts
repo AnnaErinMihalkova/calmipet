@@ -31,13 +31,13 @@ export const validateEmail = (email: string): boolean => {
 
 export const authService = { 
   register: async (payload: RegisterPayload): Promise<AuthResponse> => { 
-    const { data } = await apiClient.post<AuthResponse>('/auth/register/', payload); 
+    const { data } = await apiClient.post<AuthResponse>('auth/register/', payload); 
     localStorage.setItem('calmipet-token', data.token); 
     return data; 
   }, 
  
   login: async (payload: LoginPayload): Promise<AuthResponse> => { 
-    const { data } = await apiClient.post<AuthResponse>('/auth/login/', payload); 
+    const { data } = await apiClient.post<AuthResponse>('auth/login/', payload); 
     localStorage.setItem('calmipet-token', data.token); 
     return data; 
   }, 
@@ -48,7 +48,7 @@ export const authService = {
   }, 
  
   getMe: async (): Promise<UserProfile> => { 
-    const { data } = await apiClient.get<UserProfile>('/auth/me/'); 
+    const { data } = await apiClient.get<UserProfile>('auth/me/'); 
     return data; 
   }, 
  
@@ -57,13 +57,13 @@ export const authService = {
   }, 
  
   updatePet: async (petType: string): Promise<{ pet_type: string }> => { 
-    const { data } = await apiClient.patch('/users/pet/', null, { 
+    const { data } = await apiClient.patch('users/pet/', null, { 
       params: { pet_type: petType }, 
     }); 
     return data; 
   }, 
 
   deleteAccount: async (): Promise<void> => {
-    await apiClient.delete('/auth/delete/');
+    await apiClient.delete('auth/delete/');
   },
 };
