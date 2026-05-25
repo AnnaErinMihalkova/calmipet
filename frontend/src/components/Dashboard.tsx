@@ -143,6 +143,12 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="content" style={{ padding: 20 }}>
+      {loading && (
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>Loading readings…</p>
+      )}
+      {error && (
+        <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 12 }}>{error}</p>
+      )}
       <div style={{
         background: 'var(--bg-secondary)',
         border: '1px solid var(--border-color)',

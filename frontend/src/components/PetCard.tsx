@@ -21,35 +21,14 @@ function resolveStressScore(
 }
 
 const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate, stressScore }) => {
-  const [pet, setPet] = React.useState<any>(null);
   const [streak, setStreak] = React.useState<any>(null);
-  const [ready, setReady] = React.useState(false);
-  const [tick, setTick] = React.useState(0);
 
   const resolvedStress = resolveStressScore(stressScore, heartRate, hrv);
   const calmness =
     resolvedStress == null ? 0 : Math.max(0, Math.min(100, 100 - resolvedStress));
 
-  const load = async () => {
-    try {
-      const s = await breathingService.getStreak();
-      setStreak(s);
-    } catch {}
-    // Mock pet data since wellnessService doesn't exist
-    setPet({
-      mood: 'calm',
-      mood_score: 0.7
-    });
-  };
-
-  React.useEffect(() => { load(); }, []);
   React.useEffect(() => {
-    const t = setTimeout(() => setReady(true), 2000);
-    return () => clearTimeout(t);
-  }, []);
-  React.useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 60);
-    return () => clearInterval(id);
+    breathingService.getStreak().then(setStreak).catch(() => {});
   }, []);
 
   const getSelected = () => {
@@ -197,7 +176,7 @@ const PetCard: React.FC<PetCardProps> = ({ hrv, heartRate, stressScore }) => {
           }} />
         </div>
         <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: theme.accent }}>
-          {resolvedStress == null ? (ready ? 'Mood: calm' : 'Loading...') : `Mood: ${mood}`}
+          {resolvedStress == null ? 'Mood: calm' : `Mood: ${mood}`}
         </div>
       </div>
     </div>

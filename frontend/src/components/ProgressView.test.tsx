@@ -4,8 +4,14 @@ import '@testing-library/jest-dom';
 import ProgressView from './ProgressView';
 import userEvent from '@testing-library/user-event';
 
+jest.mock('../services/api', () => ({
+  breathingService: {
+    getStreak: jest.fn().mockResolvedValue({ streak: 0, xp: 0 }),
+  },
+}));
+
 test('ProgressView shows streak and toggles rituals', async () => {
-  const getStreak = jest.fn().mockResolvedValue({ current_streak: 5 });
+  const getStreak = jest.fn().mockResolvedValue({ streak: 5, xp: 100 });
   render(<ProgressView getStreak={getStreak} />);
   const loading = screen.getByText(/Loading/i);
   expect(loading).toBeInTheDocument();

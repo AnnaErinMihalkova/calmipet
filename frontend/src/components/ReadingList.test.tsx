@@ -25,6 +25,14 @@ jest.mock('../services/api', () => ({
 describe('ReadingList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (authService.getMe as jest.Mock).mockResolvedValue({ id: 1 });
+    (readingService.getReadings as jest.Mock).mockResolvedValue([
+      { id: 1, heart_rate: 60, stress_level: 80, timestamp: '2024-01-01T12:00:00Z' },
+      { id: 2, heart_rate: 80, stress_level: 50, timestamp: '2024-01-01T12:05:00Z' },
+      { id: 3, heart_rate: 100, stress_level: 20, timestamp: '2024-01-01T12:10:00Z' },
+    ]);
+    (readingService.createReading as jest.Mock).mockResolvedValue({ status: 'ok' });
+    (readingService.exportCsv as jest.Mock).mockResolvedValue(new Blob(['mock csv'], { type: 'text/csv' }));
   });
 
   test('fetches and displays readings on mount', async () => {

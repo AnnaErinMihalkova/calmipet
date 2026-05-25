@@ -53,7 +53,9 @@ describe('api services', () => {
   });
 
   test('breathingService functions call correct endpoints', async () => {
-    (apiClient.post as jest.Mock).mockResolvedValueOnce({ data: { id: 1 } });
+    (apiClient.post as jest.Mock)
+      .mockResolvedValueOnce({ data: { id: 1 } })
+      .mockResolvedValueOnce({ data: { id: 1, completed: true } });
     (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { streak: 5 } });
 
     await breathingService.startSession();

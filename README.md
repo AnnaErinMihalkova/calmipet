@@ -49,6 +49,11 @@ CalmIPet is a full-stack application designed to monitor stress levels through w
 - **Native Features**: Device sensor integration
 - **Offline Support**: Local data storage capabilities
 
+### ESP32 Super Mini (Bluetooth LE)
+- Firmware in `firmware/calmipet_esp32/` streams JSON vitals over BLE
+- Web app connects via **Web Bluetooth** (Chrome/Edge) on the dashboard
+- See `firmware/README.md` for wiring (MAX30102 on SDA=8, SCL=9) and flashing steps
+
 ## 🚀 Getting Started
 
 ### Prerequisites

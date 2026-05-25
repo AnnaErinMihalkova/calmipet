@@ -42,8 +42,6 @@ const PasswordStrength: React.FC<PasswordStrengthProps> = ({ password }) => {
 
   const strength = calculateStrength(password);
   const requirements = getRequirements(password);
-  const allMet = Object.values(requirements).every(req => req);
-
   const strengthConfig = {
     weak: { label: 'Weak', color: 'var(--error-color)', width: '25%' },
     medium: { label: 'Medium', color: '#ff9800', width: '50%' },

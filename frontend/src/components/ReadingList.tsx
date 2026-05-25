@@ -37,7 +37,7 @@ const ReadingList: React.FC = () => {
         heart_rate: Math.floor(Math.random() * 40) + 60,
         stress_level: Math.floor(Math.random() * 50) + 20,
       };
-      const created = await readingService.createReading(newReading);
+      await readingService.createReading(newReading);
       // Optimistic update
       setReadings([...readings, {
         id: Date.now(),

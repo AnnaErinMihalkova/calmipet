@@ -20,6 +20,7 @@ const ProgressView: React.FC<ProgressProps> = ({ getStreak }) => {
       .then(() => fn())
       .then(setStreak)
       .catch(() => setStreak(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- optional injected streak loader
   }, []);
 
   const toggleRitual = (id: number) => {

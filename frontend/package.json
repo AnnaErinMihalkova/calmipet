@@ -24,7 +24,17 @@
     "start": "set PORT=3001 && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:ci": "react-scripts test --watchAll=false",
     "eject": "react-scripts eject"
+  },
+  "jest": {
+    "testMatch": [
+      "**/src/**/__tests__/**/*.{js,jsx,ts,tsx}",
+      "**/src/**/*.{spec,test}.{js,jsx,ts,tsx}"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!axios)"
+    ]
   },
   "proxy": "http://localhost:8000",
   "eslintConfig": {
