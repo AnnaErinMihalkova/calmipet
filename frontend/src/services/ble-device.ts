@@ -122,24 +122,53 @@ export async function connectBle(): Promise<void> {
     );
   }
 
-  device = await (navigator as BleNavigator).bluetooth.requestDevice({
-    filters: [{ name: CALMIPET_BLE.deviceName }, { services: [SERVICE_UUID] }],
-    optionalServices: [SERVICE_UUID],
-  });
+  try {
+    device = await (navigator as BleNavigator).bluetooth.requestDevice({
+      filters: [{ name: CALMIPET_BLE.deviceName }, { services: [SERVICE_UUID] }],
+      optionalServices: [SERVICE_UUID],
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'NotFoundError') {
+      throw new Error('Device selection cancelled or no device found.');
+    }
+    throw err;
+  }
 
   if (!device.gatt) throw new Error('No GATT server on device');
 
+  // Remove old listener if re-connecting the same device object
+  device.removeEventListener('gattserverdisconnected', handleDisconnect);
   device.addEventListener('gattserverdisconnected', handleDisconnect);
 
-  const server = await device.gatt.connect();
-  const service = await server.getPrimaryService(SERVICE_UUID);
-  characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-  await characteristic.startNotifications();
-  characteristic.addEventListener('characteristicvaluechanged', handleNotification);
-
-  onStatusCb?.(true);
+  await establishGattConnection();
 }
+
+/** Internal helper to connect to GATT and setup characteristics */
+async function establishGattConnection(): Promise<void> {
+  if (!device?.gatt) return;
+
+  let server: BleGattServer;
+  try {
+    server = await device.gatt.connect();
+  } catch (err) {
+    console.error('BLE GATT connect error:', err);
+    throw new Error('GATT Server connection failed. Make sure the device is on and in range.');
+  }
+
+  try {
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+    await characteristic.startNotifications();
+    characteristic.addEventListener('characteristicvaluechanged', handleNotification);
+
+    onStatusCb?.(true);
+  } catch (err) {
+    console.error('BLE Service/Char discovery error:', err);
+    throw new Error('Failed to discover services. Try restarting the device.');
+  }
+}
+
 
 export async function disconnectBle(): Promise<void> {
   if (characteristic) {
@@ -152,9 +181,13 @@ export async function disconnectBle(): Promise<void> {
     characteristic = null;
   }
   if (device?.gatt?.connected) {
-    device.gatt.disconnect();
+    try {
+      device.gatt.disconnect();
+    } catch (err) {
+      console.warn('BLE disconnect error:', err);
+    }
   }
-  device = null;
+  // We keep the device object but reset state
   onStatusCb?.(false);
 }
 
@@ -196,9 +229,19 @@ function handleNotification(event: Event) {
   }
 }
 
-function handleDisconnect() {
+async function handleDisconnect() {
   characteristic = null;
   onStatusCb?.(false);
+  
+  // Optional: Attempt to reconnect once if the disconnection was unexpected
+  if (device && !device.gatt?.connected) {
+    console.log('CalmIPet BLE: unexpected disconnect, attempting auto-reconnect...');
+    try {
+      await establishGattConnection();
+    } catch (e) {
+      console.warn('CalmIPet BLE: auto-reconnect failed');
+    }
+  }
 }
 
 async function postToBackend(reading: BleReading): Promise<void> {
