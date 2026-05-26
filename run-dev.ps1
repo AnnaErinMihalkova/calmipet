@@ -10,7 +10,7 @@ if ($ip) {
   $Env:EXPO_PUBLIC_WEB_URL = "http://$ip:3001/"
 }
 Start-Process powershell -ArgumentList "-NoProfile -Command cd '$PSScriptRoot\backend'; python -m pip install -r requirements.txt; python -m uvicorn app.main:app --host 0.0.0.0 --port 8000" -WindowStyle Minimized
-Start-Process powershell -ArgumentList "-NoProfile -Command cd '$PSScriptRoot\frontend'; npm install; npm start" -WindowStyle Minimized
+Start-Process powershell -ArgumentList "-NoProfile -Command cd '$PSScriptRoot\frontend'; npm install; `$env:HOST='0.0.0.0'; `$env:PORT='3001'; npm start" -WindowStyle Minimized
 cd "$PSScriptRoot\mobile-app"
 npm install
 if ($Tunnel) {

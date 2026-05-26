@@ -139,25 +139,23 @@ const SignUp: React.FC<SignUpProps> = ({ onNavigateToLogin, onAuthSuccess }) => 
       ratings[todayKey] = stress;
       localStorage.setItem('hb_stress_ratings', JSON.stringify(ratings));
 
-      const response = await authService.register({
+      const registrationPayload = {
         username: formData.username,
         email: formData.email,
         password: formData.password,
-      });
+        age: parsedAge,
+        gender: gender as any,
+        baseline_hr: parsedHr,
+      };
       
-      try {
-        if (response.token) {
-          localStorage.setItem('calmipet-token', response.token);  
-        }
-        localStorage.setItem('hb_user_id', response.user_id.toString());
-      } catch {}
+      console.log('[SignUp] Submitting registration:', { ...registrationPayload, password: '***' });
+
+      await authService.register(registrationPayload);
       
       setSuccessMessage('Account created successfully! Redirecting...');
       setTimeout(() => {
         if (onAuthSuccess) {
           onAuthSuccess();
-        } else {
-          window.location.hash = 'dashboard';
         }
       }, 1000);
     } catch (error: any) {

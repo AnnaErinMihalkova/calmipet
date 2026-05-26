@@ -8,14 +8,36 @@ const ReadingList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const refreshData = React.useCallback(() => {
+    if (!authService.isAuthenticated()) {
+      setError('Please log in to view readings');
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
     authService.getMe().then(() => {
       fetchReadings();
-    }).catch(() => {
-      setError('Please log in to view readings');
+    }).catch((err) => {
+      console.error('[ReadingList] Auth check failed:', err);
+      if (err?.response?.status === 401 || err?.response?.status === 404) {
+        authService.logout();
+        setError('Please log in to view readings');
+      } else {
+        // Network error or other, still try to fetch readings if we have a token
+        fetchReadings();
+      }
+    }).finally(() => {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    refreshData();
+    
+    window.addEventListener('calmipet-auth-changed', refreshData);
+    return () => window.removeEventListener('calmipet-auth-changed', refreshData);
+  }, [refreshData]);
 
   const fetchReadings = async () => {
     try {

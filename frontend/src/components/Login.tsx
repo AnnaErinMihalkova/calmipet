@@ -60,21 +60,12 @@ const Login: React.FC<LoginProps> = ({ onNavigateToSignup, onAuthSuccess }) => {
 
     setIsLoading(true);
     try {
-      const data = await authService.login({ email: formData.email, password: formData.password });
-      
-      try {
-        if (data.token) {
-          localStorage.setItem('calmipet-token', data.token);
-        }
-        localStorage.setItem('hb_user_id', data.user_id.toString());
-      } catch {}
+      await authService.login({ email: formData.email, password: formData.password });
       
       setSuccessMessage('Login successful! Redirecting...');
       setTimeout(() => {
         if (onAuthSuccess) {
           onAuthSuccess();
-        } else {
-          window.location.hash = 'dashboard';
         }
       }, 1000);
     } catch (error: any) {

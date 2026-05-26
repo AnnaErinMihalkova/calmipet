@@ -6,12 +6,12 @@ import { AuthProvider, useAuth } from './src/context/AuthContext'
 
 function AppContent() {
   const { user } = useAuth()
-  const route = user ? 'dashboard' : 'home'
+  const webPath = user ? '/dashboard' : '/'
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <WebFrontendScreen route={route} />
+        <WebFrontendScreen path={webPath} />
       </View>
       <StatusBar style="auto" />
     </View>

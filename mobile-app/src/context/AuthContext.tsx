@@ -1,6 +1,7 @@
 import React from 'react'
 import { authApi, userApi } from '../api/client'
 import { getTokens, saveTokens, clearTokens } from '../services/storage'
+import { getBaseUrl } from '../config'
 
 type AuthContextValue = {
   user: any | null
@@ -9,6 +10,7 @@ type AuthContextValue = {
   signup: (email: string, username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   updateUser: (userData: any) => void
+  syncFromWebView: (token: string) => Promise<void>
 }
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
@@ -24,12 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const me = await userApi.me(accessToken)
         setUser(me)
-      } catch {
-        if (!refreshToken) return
-        const rotated = await authApi.refresh(refreshToken)
-        await saveTokens(rotated.accessToken, rotated.refreshToken)
-        const me = await userApi.me(rotated.accessToken)
-        setUser(me)
+      } catch (err) {
+        console.warn('[Auth] session restore failed', getBaseUrl(), err)
+        await clearTokens()
       }
     } finally {
       setLoading(false)
@@ -55,13 +54,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }
 
+  const syncFromWebView = async (token: string) => {
+    await saveTokens(token, '')
+    const me = await userApi.me(token)
+    setUser(me)
+  }
+
   const value: AuthContextValue = {
     user,
     loading,
     login,
     signup,
     logout,
-    updateUser: (userData) => setUser(userData)
+    updateUser: (userData) => setUser(userData),
+    syncFromWebView,
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

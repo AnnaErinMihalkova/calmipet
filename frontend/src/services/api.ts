@@ -4,17 +4,25 @@ import axios, { AxiosInstance } from 'axios';
 // ONE shared instance — consistent base URL, no trailing-slash ambiguity (#19) 
 // --------------------------------------------------------------------------- 
 // Support both REACT_APP_API_BASE and REACT_APP_API_BASE_URL for backward compatibility
+const hostname =
+  typeof window !== 'undefined' ? window.location.hostname : '';
+
 let API_BASE = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_BASE || '';
 
-if (!API_BASE) {
-  const hostname = window.location.hostname;
+// Expo Go / phone WebView: page is served from the PC LAN IP — API must use the same host.
+if (
+  hostname &&
+  hostname !== 'localhost' &&
+  hostname !== '127.0.0.1' &&
+  !hostname.includes('onrender.com')
+) {
+  API_BASE = `http://${hostname}:8000/api/`;
+} else if (!API_BASE) {
   if (hostname.includes('onrender.com')) {
     API_BASE = 'https://calmipet-backend.onrender.com/api/';
   } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // Force localhost for IDE preview to avoid network suspension issues
-    API_BASE = `http://localhost:8000/api/`;
-  } else {
-    // Local development fallback for mobile/other devices
+    API_BASE = 'http://localhost:8000/api/';
+  } else if (hostname) {
     API_BASE = `http://${hostname}:8000/api/`;
   }
 }

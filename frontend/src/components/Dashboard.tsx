@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { readingService, Reading } from '../services/api';
 import { authService } from '../services/auth';
 import TrendChart from './TrendChart';
@@ -9,12 +10,13 @@ import BleDevicePanel from './BleDevicePanel';
 import { useVitals } from '../contexts/VitalsContext';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [readings, setReadings] = React.useState<Reading[]>([]);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
   const [coachOpen, setCoachOpen] = React.useState<boolean>(false);
   const [username, setUsername] = React.useState<string>('');
-  const [authed, setAuthed] = React.useState<boolean>(false);
+  const [authed, setAuthed] = React.useState<boolean>(() => authService.isAuthenticated());
   const [bleConnected, setBleConnected] = React.useState<boolean>(false);
   const { vitals } = useVitals();
   const isFetching = React.useRef(false);
@@ -22,16 +24,14 @@ const Dashboard: React.FC = () => {
   const handleLogout = async () => {
     try { await authService.logout(); } catch {}
     try { localStorage.removeItem('hb_onboarded'); } catch {}
-    window.location.hash = 'home';
-    window.location.reload();
+    navigate('/');
   };
 
   const handleDelete = async () => {
     if (!window.confirm('Delete your account? This cannot be undone.')) return;
     try { await authService.deleteAccount(); } catch {}
     try { localStorage.clear(); } catch {}
-    window.location.hash = 'home';
-    window.location.reload();
+    navigate('/');
   };
 
   const fetchReadings = async () => {
@@ -58,29 +58,66 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  React.useEffect(() => {
-    authService.getMe().then((u) => {
-      setUsername(u.username);
-      setAuthed(true);
-      fetchReadings();
-      
-      // Sync pet type to localStorage if it's different
-      try {
-        const raw = localStorage.getItem('hb_user_info');
-        const info = raw ? JSON.parse(raw) : {};
-        if (u.pet_type && info.petAnimal !== u.pet_type) {
-          info.petAnimal = u.pet_type;
-          localStorage.setItem('hb_user_info', JSON.stringify(info));
-          window.dispatchEvent(new Event('calmipet-pet-changed'));
+  const refreshAuthState = React.useCallback(() => {
+    const hasToken = authService.isAuthenticated();
+    setAuthed(hasToken);
+    if (!hasToken) {
+      setUsername('');
+      return;
+    }
+    
+    // If we have a token but no username, definitely fetch
+    authService
+      .getMe()
+      .then((u) => {
+        if (u.username) {
+          setUsername(u.username);
         }
-      } catch (e) {
-        console.warn('[Dashboard] Failed to sync pet info:', e);
-      }
-    }).catch(() => {
-      setAuthed(false);
-      fetchReadings();
-    });
+        setAuthed(true);
+        fetchReadings();
+        try {
+          const raw = localStorage.getItem('hb_user_info');
+          const info = raw ? JSON.parse(raw) : {};
+          let changed = false;
+          if (u.pet_type && info.petAnimal !== u.pet_type) {
+            info.petAnimal = u.pet_type;
+            changed = true;
+          }
+          // Also sync other profile info to localStorage
+          if (u.age !== undefined) info.age = u.age;
+          if (u.gender !== undefined) info.gender = u.gender;
+          if (u.baseline_hr !== undefined) info.baselineHr = u.baseline_hr;
+          
+          if (changed || u.age !== undefined || u.gender !== undefined || u.baseline_hr !== undefined) {
+            localStorage.setItem('hb_user_info', JSON.stringify(info));
+            if (changed) window.dispatchEvent(new Event('calmipet-pet-changed'));
+          }
+        } catch (e) {
+          console.warn('[Dashboard] Failed to sync pet info:', e);
+        }
+      })
+      .catch((err: { response?: { status?: number } }) => {
+        console.error('[Dashboard] refreshAuthState failed:', err);
+        if (err.response?.status === 401 || err.response?.status === 404) {
+          authService.logout();
+          setAuthed(false);
+        } else {
+          setAuthed(true);
+        }
+        fetchReadings();
+      });
   }, []);
+
+  React.useEffect(() => {
+    refreshAuthState();
+    const onAuthChanged = () => refreshAuthState();
+    window.addEventListener('calmipet-auth-changed', onAuthChanged);
+    window.addEventListener('storage', onAuthChanged);
+    return () => {
+      window.removeEventListener('calmipet-auth-changed', onAuthChanged);
+      window.removeEventListener('storage', onAuthChanged);
+    };
+  }, [refreshAuthState]);
 
   React.useEffect(() => {
     if (!authed) return;

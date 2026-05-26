@@ -86,13 +86,28 @@ const AccountView: React.FC = () => {
   const [user, setUser] = React.useState<UserProfile | null>(null);
   const [petType, setPetType] = React.useState<string>('raccoon');
   const [loading, setLoading] = React.useState(true);
+  
+  // Profile edit states
+  const [editMode, setEditMode] = React.useState(false);
+  const [username, setUsername] = React.useState('');
+  const [age, setAge] = React.useState('');
+  const [gender, setGender] = React.useState('');
+  const [baselineHr, setBaselineHr] = React.useState('');
+  const [isSaving, setIsSaving] = React.useState(false);
 
   React.useEffect(() => {
     authService.getMe()
       .then((u) => {
+        console.log('[AccountView] Profile loaded:', u);
         setUser(u);
         const backendPet = u.pet_type || 'raccoon';
         setPetType(backendPet);
+        
+        // Initialize edit states
+        setUsername(u.username || '');
+        setAge(u.age ? String(u.age) : '');
+        setGender(u.gender || 'prefer_not_to_say');
+        setBaselineHr(u.baseline_hr ? String(u.baseline_hr) : '');
         
         // Sync to localStorage
         try {
@@ -105,13 +120,61 @@ const AccountView: React.FC = () => {
           }
         } catch {}
       })
-      .catch(() => navigate('/login'))
+      .catch((err) => {
+        console.error('[AccountView] Failed to fetch profile:', err);
+        // Only redirect to login if it's definitely an auth error (401 or 404 User Not Found)
+        if (err?.response?.status === 401 || err?.response?.status === 404) {
+          authService.logout();
+          navigate('/login');
+        }
+      })
       .finally(() => setLoading(false));
   }, [navigate]);
 
   const handleLogout = () => {
     authService.logout();
     navigate('/');
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      await authService.updateProfile({
+        username: username.trim(),
+        age: age.trim() ? parseInt(age, 10) : undefined,
+        gender,
+        baseline_hr: baselineHr.trim() ? parseFloat(baselineHr) : undefined,
+      });
+      
+      // Update local user state
+      if (user) {
+        setUser({
+          ...user,
+          username: username.trim(),
+          age: age.trim() ? parseInt(age, 10) : undefined,
+          gender,
+          baseline_hr: baselineHr.trim() ? parseFloat(baselineHr) : undefined,
+        });
+      }
+      
+      // Sync to localStorage for other components
+      try {
+        const raw = localStorage.getItem('hb_user_info');
+        const info = raw ? JSON.parse(raw) : {};
+        info.age = age.trim() ? parseInt(age, 10) : undefined;
+        info.gender = gender;
+        info.baselineHr = baselineHr.trim() ? parseFloat(baselineHr) : undefined;
+        localStorage.setItem('hb_user_info', JSON.stringify(info));
+      } catch {}
+
+      setEditMode(false);
+      alert('Profile updated successfully!');
+      window.dispatchEvent(new Event('calmipet-auth-changed'));
+    } catch (e) {
+      alert('Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSavePet = async () => {
@@ -136,14 +199,92 @@ const AccountView: React.FC = () => {
   return (
     <div className="content" style={{ padding: 20, paddingBottom: 100 }}>
       <div className="card" style={{ marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 16 }}>Your Account</h2>
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Username</div>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>{user?.username}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ margin: 0 }}>Your Account</h2>
+          <button 
+            onClick={() => editMode ? handleSaveProfile() : setEditMode(true)}
+            disabled={isSaving}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              background: editMode ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+              color: editMode ? 'white' : 'var(--text-primary)',
+              border: 'none',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            {isSaving ? 'Saving...' : editMode ? 'Save Profile' : 'Edit Profile'}
+          </button>
         </div>
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Email</div>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>{user?.email}</div>
+
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Username</div>
+            {editMode ? (
+              <input 
+                value={username} 
+                onChange={e => setUsername(e.target.value)}
+                style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+              />
+            ) : (
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{user?.username}</div>
+            )}
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Email</div>
+            <div style={{ fontSize: 16, fontWeight: 600, opacity: 0.7 }}>{user?.email}</div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Age</div>
+              {editMode ? (
+                <input 
+                  type="number"
+                  value={age} 
+                  onChange={e => setAge(e.target.value)}
+                  style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+                />
+              ) : (
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{user?.age || 'Not set'}</div>
+              )}
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Gender</div>
+              {editMode ? (
+                <select 
+                  value={gender} 
+                  onChange={e => setGender(e.target.value)}
+                  style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="prefer_not_to_say">Prefer not to say</option>
+                </select>
+              ) : (
+                <div style={{ fontSize: 16, fontWeight: 600, textTransform: 'capitalize' }}>
+                  {user?.gender?.replace(/_/g, ' ') || 'Not set'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Baseline Heart Rate</div>
+            {editMode ? (
+              <input 
+                type="number"
+                value={baselineHr} 
+                onChange={e => setBaselineHr(e.target.value)}
+                style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+              />
+            ) : (
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{user?.baseline_hr ? `${user.baseline_hr} BPM` : 'Not set'}</div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -230,8 +371,21 @@ const Onboarding: React.FC = () => {
       return;
     }
     authService.getMe()
-      .then(() => setHasValidSession(true))
-      .catch(() => authService.logout())
+      .then(() => {
+        setHasValidSession(true);
+        // If they are on the root path and already logged in, take them to dashboard
+        if (window.location.pathname === '/') {
+          navigate('/dashboard', { replace: true });
+        }
+      })
+      .catch((err) => {
+        console.warn('[Onboarding] Session validation failed:', err);
+        // Only logout if it's a 401 Unauthorized or 404 User Not Found
+        if (err?.response?.status === 401 || err?.response?.status === 404) {
+          authService.logout();
+        }
+        setHasValidSession(false);
+      })
       .finally(() => setCheckingAuth(false));
   }, [navigate]);
 
@@ -340,6 +494,7 @@ export default App;
 
 const LoginRoute: React.FC = () => {
   const navigate = useNavigate();
+  
   return (
     <Login
       onAuthSuccess={() => navigate('/dashboard')}
@@ -350,6 +505,7 @@ const LoginRoute: React.FC = () => {
 
 const SignUpRoute: React.FC = () => {
   const navigate = useNavigate();
+
   return (
     <SignUp
       onAuthSuccess={() => navigate('/dashboard')}
