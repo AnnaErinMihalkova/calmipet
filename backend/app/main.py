@@ -45,6 +45,9 @@ class RegisterPayload(BaseModel):
     email: str
     username: str
     password: str
+    age: int | None = None
+    gender: str | None = None
+    baseline_hr: float | None = None
 
 
 class LoginPayload(BaseModel):
@@ -59,6 +62,13 @@ def _normalize_email(email: str) -> str:
 class ResetPasswordPayload(BaseModel):
     email: str
     new_password: str
+
+
+class ProfileUpdatePayload(BaseModel):
+    username: str | None = None
+    age: int | None = None
+    gender: str | None = None
+    baseline_hr: float | None = None
 
 
 def _integrity_error():
@@ -91,10 +101,20 @@ def auth_register(payload: RegisterPayload):
             user_id = insert_returning_id(
                 conn,
                 """
-                INSERT INTO users (email, username, password, salt, password_hash, password_salt)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO users (email, username, password, salt, password_hash, password_salt, age, gender, baseline_hr)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (email, username, phash, salt, phash, salt),
+                (
+                    email,
+                    username,
+                    phash,
+                    salt,
+                    phash,
+                    salt,
+                    payload.age,
+                    payload.gender,
+                    payload.baseline_hr,
+                ),
             )
             conn.commit()
         except IntegrityError as exc:
@@ -193,7 +213,7 @@ def auth_me(user_id: int = Depends(get_current_user_id)):
     with get_connection() as conn:
         row = fetchone(
             conn,
-            "SELECT id, email, username, is_admin, pet_type FROM users WHERE id = ?",
+            "SELECT id, email, username, is_admin, pet_type, age, gender, baseline_hr FROM users WHERE id = ?",
             (user_id,),
         )
     if not row:
@@ -204,7 +224,39 @@ def auth_me(user_id: int = Depends(get_current_user_id)):
         "username": row[2],
         "is_admin": bool(row[3]),
         "pet_type": row[4],
+        "age": row[5],
+        "gender": row[6],
+        "baseline_hr": row[7],
     }
+
+
+@app.patch("/api/auth/profile/")
+def update_profile(payload: ProfileUpdatePayload, user_id: int = Depends(get_current_user_id)):
+    with get_connection() as conn:
+        # Build update query dynamically
+        updates = []
+        params = []
+        if payload.username is not None:
+            updates.append("username = ?")
+            params.append(payload.username)
+        if payload.age is not None:
+            updates.append("age = ?")
+            params.append(payload.age)
+        if payload.gender is not None:
+            updates.append("gender = ?")
+            params.append(payload.gender)
+        if payload.baseline_hr is not None:
+            updates.append("baseline_hr = ?")
+            params.append(payload.baseline_hr)
+
+        if not updates:
+            return {"status": "no changes"}
+
+        params.append(user_id)
+        query = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+        execute(conn, query, params)
+        conn.commit()
+    return {"status": "ok"}
 
 
 @app.patch("/api/users/pet/")

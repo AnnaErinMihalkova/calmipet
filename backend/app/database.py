@@ -93,6 +93,9 @@ def _init_postgres(cursor) -> None:
             password_salt TEXT,
             is_admin BOOLEAN DEFAULT FALSE,
             pet_type TEXT DEFAULT 'raccoon',
+            age INTEGER,
+            gender TEXT,
+            baseline_hr DOUBLE PRECISION,
             created_at TIMESTAMPTZ DEFAULT NOW()
         )
         """
@@ -139,6 +142,22 @@ def _init_postgres(cursor) -> None:
         "CREATE INDEX IF NOT EXISTS idx_breathing_sessions_user_id ON breathing_sessions(user_id)"
     )
 
+    # Migrations for existing PostgreSQL tables
+    cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'users'")
+    users_cols = {row[0] for row in cursor.fetchall()}
+    if "password_hash" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+    if "password_salt" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN password_salt TEXT")
+    if "pet_type" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN pet_type TEXT DEFAULT 'raccoon'")
+    if "age" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN age INTEGER")
+    if "gender" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN gender TEXT")
+    if "baseline_hr" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN baseline_hr DOUBLE PRECISION")
+
 
 def _init_sqlite(cursor) -> None:
     cursor.execute(
@@ -151,6 +170,9 @@ def _init_sqlite(cursor) -> None:
             salt TEXT NOT NULL,
             is_admin INTEGER DEFAULT 0,
             pet_type TEXT DEFAULT 'raccoon',
+            age INTEGER,
+            gender TEXT,
+            baseline_hr REAL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -203,6 +225,16 @@ def _init_sqlite(cursor) -> None:
         cursor.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
     if "password_salt" not in users_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN password_salt TEXT")
+    if "pet_type" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN pet_type TEXT DEFAULT 'raccoon'")
+    if "age" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN age INTEGER")
+    if "gender" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN gender TEXT")
+    if "baseline_hr" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN baseline_hr REAL")
+    if "created_at" not in users_cols and "date_joined" not in users_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP")
 
     gamification_cols = {
         col[1] for col in cursor.execute("PRAGMA table_info(gamification)").fetchall()
