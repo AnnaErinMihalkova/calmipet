@@ -1,5 +1,3 @@
-"""CalmIPet improved stress calculation (HR + SpO2 + HRV)."""
-
 from __future__ import annotations
 
 import math
