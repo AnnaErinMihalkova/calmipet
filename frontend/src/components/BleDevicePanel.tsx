@@ -4,11 +4,13 @@ import {
   disconnectBle,
   isBleSupported,
   isConnected,
+  isNativeBle,
   onPosted,
   onReading,
   onStatus,
   BleReading,
 } from '../services/ble-device';
+import { openNativeBluetoothSettings } from '../services/ble-native-bridge';
 import { useVitals } from '../contexts/VitalsContext';
 
 type Props = {
@@ -116,11 +118,14 @@ const BleDevicePanel: React.FC<Props> = ({
     return (
       <div>
         <p style={{ color: '#f59e0b', fontSize: 13, marginBottom: 8 }}>
-          Web Bluetooth needs Chrome or Edge (desktop or Android). iOS Safari is not supported.
+          Bluetooth is not available in this browser. Use the CalmiPet mobile app on iPhone or Android,
+          or Chrome/Edge on desktop.
         </p>
       </div>
     );
   }
+
+  const nativeBle = isNativeBle();
 
   const btnStyle: React.CSSProperties = {
     padding: '12px 16px',
@@ -166,6 +171,12 @@ const BleDevicePanel: React.FC<Props> = ({
         </>
       ) : (
         <>
+          {nativeBle && (
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 10, lineHeight: 1.5 }}>
+              Uses your phone&apos;s Bluetooth directly (iPhone &amp; Android). Turn on Bluetooth in Settings,
+              power on the CalmIPet bracelet, then tap Connect.
+            </p>
+          )}
           <button
             type="button"
             onClick={handleConnect}
@@ -179,6 +190,21 @@ const BleDevicePanel: React.FC<Props> = ({
           >
             {busy ? 'Connecting…' : 'Connect ESP32'}
           </button>
+          {nativeBle && (
+            <button
+              type="button"
+              onClick={openNativeBluetoothSettings}
+              style={{
+                ...btnStyle,
+                marginTop: 10,
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              Open Bluetooth Settings
+            </button>
+          )}
           {error && (
             <p style={{ color: '#ef4444', fontSize: 13, marginTop: 8 }}>{error}</p>
           )}

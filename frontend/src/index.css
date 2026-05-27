@@ -1,16 +1,19 @@
 :root[data-theme="dark"] {
-  /* Dark theme colors */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #2a2a2a;
-  --text-primary: #e0e0e0;
-  --text-secondary: #b0b0b0;
-  --text-tertiary: #808080;
-  --border-color: #333333;
-  --border-hover: #444444;
+  color-scheme: dark;
+  /* Dark theme — deep purple (not black) */
+  --bg-primary: #150a24;
+  --bg-secondary: #1e1035;
+  --bg-tertiary: #2a1848;
+  --text-primary: #ffffff;
+  --text-secondary: #c4b5d8;
+  --text-tertiary: #8b7aa8;
+  --border-color: #3d2d5c;
+  --border-hover: #4e3d70;
   --accent-color: #7c3aed;
   --accent-hover: #8b5cf6;
   --accent-light: #a78bfa;
+  --accent-primary: #7c3aed;
+  --accent-secondary: #a78bfa;
   --error-color: #ef4444;
   --success-color: #10b981;
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
@@ -18,20 +21,21 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
   
   /* Logo colors for dark theme */
-  --logo-bg: #1a1a1a;
+  --logo-bg: #1e1035;
   --logo-border: #7c3aed;
   --logo-rabbit: #ffffff;
   --logo-rabbit-inner: #e0e0e0;
   --logo-mirror: #7c3aed;
   --logo-mirror-bg: #7c3aed;
-  --logo-eyes: #1a1a1a;
+  --logo-eyes: #150a24;
   --logo-eyes-pupil: #7c3aed;
-  --logo-nose: #1a1a1a;
+  --logo-nose: #150a24;
   --logo-text: #b0b0b0;
   --logo-shadow: rgba(124, 58, 237, 0.4);
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   /* Light theme colors */
   --bg-primary: #f5f5f5;
   --bg-secondary: #ffffff;
@@ -44,6 +48,8 @@
   --accent-color: #7c3aed;
   --accent-hover: #8b5cf6;
   --accent-light: #a78bfa;
+  --accent-primary: #7c3aed;
+  --accent-secondary: #a78bfa;
   --error-color: #dc2626;
   --success-color: #059669;
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -64,16 +70,10 @@
   --logo-shadow: rgba(124, 58, 237, 0.2);
 }
 
-html, body, #root {
+html {
   height: 100%;
   margin: 0;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-
-#root {
-  display: flex;
-  flex-direction: column;
+  background-color: var(--bg-primary);
 }
 
 body {
@@ -83,10 +83,25 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
   overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 100%;
+  overscroll-behavior-y: none;
+  
+  /* Fixed global background to prevent cutting off */
+  background-color: var(--bg-primary);
+  background-image: radial-gradient(120% 120% at 10% 20%, rgba(124, 58, 237, 0.2), transparent),
+    radial-gradient(120% 120% at 90% 10%, rgba(139, 92, 246, 0.14), transparent);
+  background-attachment: fixed;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background-color: var(--bg-primary);
 }
 
 *,

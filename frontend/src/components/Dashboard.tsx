@@ -5,6 +5,7 @@ import { authService } from '../services/auth';
 import TrendChart from './TrendChart';
 import PetCard from './PetCard';
 import BreathingCoach from './BreathingCoach';
+import FullscreenOverlay from './FullscreenOverlay';
 import CircularLogo from './CircularLogo';
 import BleDevicePanel from './BleDevicePanel';
 import { useVitals } from '../contexts/VitalsContext';
@@ -183,7 +184,7 @@ const Dashboard: React.FC = () => {
   })();
 
   return (
-    <div className="content" style={{ padding: 20 }}>
+    <div className="content" style={{ padding: 20, paddingBottom: 100, overflowY: 'auto' }}>
       {loading && (
         <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>Loading readings…</p>
       )}
@@ -200,9 +201,10 @@ const Dashboard: React.FC = () => {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>MindRaccoon</div>
             <div style={{ fontSize: 24, fontWeight: 800 }}>Hello{username ? `, ${username}` : ''}</div>
-            <div style={{ color: 'var(--text-secondary)', marginTop: 4, fontSize: 14 }}>Your biofeedback is {readings.length ? 'active' : 'waiting'}</div>
+            <div style={{ color: 'var(--text-secondary)', marginTop: 4, fontSize: 14 }}>
+              v1.0.1 • {readings.length ? 'Live biofeedback' : 'Ready to start'}
+            </div>
           </div>
           <div style={{ width: 80, height: 80 }}>
             <CircularLogo size={80} />
@@ -314,14 +316,15 @@ const Dashboard: React.FC = () => {
           onClick={() => setDailyOpen(true)}
           style={{
             flex: 1,
-            background: 'var(--bg-secondary)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-color)',
+            background: 'var(--accent-primary)',
+            color: 'white',
+            border: 'none',
             padding: 16,
             borderRadius: 16,
             fontSize: 16,
             fontWeight: 700,
             cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
           }}
         >
           Daily Summary
@@ -392,38 +395,27 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {coachOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'var(--bg-primary)',
-          zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <BreathingCoach onClose={() => setCoachOpen(false)} />
-        </div>
-      )}
+      <FullscreenOverlay
+        open={coachOpen}
+        onClose={() => setCoachOpen(false)}
+        ariaLabel="Breathing coach"
+      >
+        <BreathingCoach onClose={() => setCoachOpen(false)} />
+      </FullscreenOverlay>
 
-      {dailyOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'var(--bg-primary)',
-          zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column',
-          padding: 20,
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <div style={{ fontSize: 24, fontWeight: 800 }}>Daily Summary</div>
-            <button onClick={() => setDailyOpen(false)} style={{
-              background: 'var(--bg-secondary)', border: 'none', width: 40, height: 40, borderRadius: 20, color: 'var(--text-primary)', fontSize: 20, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>×</button>
-          </div>
-
+      <FullscreenOverlay
+        open={dailyOpen}
+        onClose={() => setDailyOpen(false)}
+        title="Daily Summary"
+        ariaLabel="Daily summary"
+      >
+        <div className="fullscreen-overlay__body fullscreen-overlay__body--fill">
           <div style={{
-            background: 'var(--bg-secondary)', borderRadius: 18, padding: 20, marginBottom: 16, border: '1px solid var(--border-color)'
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            background: 'var(--bg-secondary)', borderRadius: 18, padding: 20, border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-md)'
           }}>
             <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>Today's Overview</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -446,7 +438,27 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+
+        <div className="fullscreen-overlay__footer">
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => {
+              setDailyOpen(false);
+              setCoachOpen(true);
+            }}
+          >
+            Start Breathing
+          </button>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => setDailyOpen(false)}
+          >
+            Go to Home Page
+          </button>
+        </div>
+      </FullscreenOverlay>
     </div>
   );
 };

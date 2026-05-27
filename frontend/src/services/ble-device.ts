@@ -4,6 +4,12 @@
  */
 
 import { readingService } from './api';
+import {
+  isNativeAppWebView,
+  postToNativeApp,
+  subscribeNativeBleEvents,
+  waitForNativeConnect,
+} from './ble-native-bridge';
 
 export const CALMIPET_BLE = {
   deviceName: 'CalmIPet',
@@ -90,8 +96,16 @@ export function onPosted(cb: PostedCallback) {
   onPostedCb = cb;
 }
 
-export function isBleSupported(): boolean {
+function isWebBluetoothAvailable(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+}
+
+export function isBleSupported(): boolean {
+  return isWebBluetoothAvailable() || isNativeAppWebView();
+}
+
+export function isNativeBle(): boolean {
+  return isNativeAppWebView();
 }
 
 /** @deprecated */
@@ -117,11 +131,53 @@ export function parseBlePayload(raw: string): BleVitals | null {
   }
 }
 
+function applyReading(reading: BleReading): void {
+  const hrFactor = Math.max(0, Math.min(1, (reading.heart_rate - 60) / 40));
+  const hrvFactor = Math.max(0, Math.min(1, (80 - reading.hrv) / 60));
+  reading.stress_level = Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
+  onReadingCb?.(reading);
+
+  const now = Date.now();
+  if (now - lastPostTime >= POST_INTERVAL_MS) {
+    lastPostTime = now;
+    postToBackend(reading).catch((err) => {
+      console.error('CalmIPet BLE: failed to upload reading', err);
+    });
+  }
+}
+
+/** Used by native app bridge when a notification arrives from the ESP32 */
+export function ingestBleReading(raw: BleReading): void {
+  if (!raw || raw.heart_rate <= 0) return;
+  applyReading(raw);
+}
+
+if (typeof window !== 'undefined' && isNativeAppWebView()) {
+  subscribeNativeBleEvents({
+    onStatus: (connected) => {
+      setNativeBleConnected(connected);
+      onStatusCb?.(connected);
+    },
+    onReading: (reading) => ingestBleReading(reading),
+    onError: (message) => console.warn('[CalmIPet] Native BLE:', message),
+  });
+}
+
+async function connectBleNative(): Promise<void> {
+  postToNativeApp({ type: 'BLE_CONNECT' });
+  await waitForNativeConnect();
+}
+
 export async function connectBle(): Promise<void> {
   if (!isBleSupported()) {
     throw new Error(
-      'Web Bluetooth is not supported in this browser. Use Chrome or Edge on desktop or Android.'
+      'Bluetooth is not available here. Use the CalmiPet mobile app, or Chrome/Edge on desktop or Android.'
     );
+  }
+
+  if (isNativeAppWebView()) {
+    await connectBleNative();
+    return;
   }
 
   try {
@@ -173,6 +229,13 @@ async function establishGattConnection(): Promise<void> {
 
 
 export async function disconnectBle(): Promise<void> {
+  if (isNativeAppWebView()) {
+    postToNativeApp({ type: 'BLE_DISCONNECT' });
+    setNativeBleConnected(false);
+    onStatusCb?.(false);
+    return;
+  }
+
   if (characteristic) {
     try {
       characteristic.removeEventListener('characteristicvaluechanged', handleNotification);
@@ -193,7 +256,14 @@ export async function disconnectBle(): Promise<void> {
   onStatusCb?.(false);
 }
 
+let nativeConnected = false;
+
+export function setNativeBleConnected(connected: boolean): void {
+  nativeConnected = connected;
+}
+
 export function isConnected(): boolean {
+  if (isNativeAppWebView()) return nativeConnected;
   return device?.gatt?.connected ?? false;
 }
 
@@ -214,26 +284,11 @@ function handleNotification(event: Event) {
     return;
   }
 
-  const reading: BleReading = {
+  ingestBleReading({
     heart_rate: parsed.heart_rate,
     spo2: parsed.spo2 ?? 0,
     hrv: parsed.hrv ?? 0,
-  };
-
-  // Simple frontend stress calculation for live feedback
-  const hrFactor = Math.max(0, Math.min(1, (reading.heart_rate - 60) / 40));
-  const hrvFactor = Math.max(0, Math.min(1, (80 - reading.hrv) / 60));
-  reading.stress_level = Math.round((0.4 * hrFactor + 0.6 * hrvFactor) * 100);
-
-  onReadingCb?.(reading);
-
-  const now = Date.now();
-  if (now - lastPostTime >= POST_INTERVAL_MS) {
-    lastPostTime = now;
-    postToBackend(reading).catch((err) => {
-      console.error('CalmIPet BLE: failed to upload reading', err);
-    });
-  }
+  });
 }
 
 async function handleDisconnect() {

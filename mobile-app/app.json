@@ -11,10 +11,22 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["central"],
+          "bluetoothAlwaysPermission": "CalmiPet uses Bluetooth to connect to your ESP32 bracelet for heart rate and SpO2 readings."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.calmipet.mobile",
       "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "CalmiPet uses Bluetooth to connect to your ESP32 bracelet for heart rate and SpO2 readings.",
+        "NSBluetoothPeripheralUsageDescription": "CalmiPet uses Bluetooth to connect to your ESP32 bracelet for heart rate and SpO2 readings.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
@@ -23,6 +35,13 @@
     "android": {
       "package": "com.calmipet.mobile",
       "usesCleartextTraffic": true,
+      "permissions": [
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

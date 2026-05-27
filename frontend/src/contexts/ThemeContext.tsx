@@ -36,9 +36,20 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   });
 
   useEffect(() => {
-    // Update document class and localStorage
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
+
+    const themeColor = theme === 'light' ? '#f5f5f5' : '#150a24';
+    document.documentElement.style.backgroundColor = themeColor;
+    document.body.style.backgroundColor = themeColor;
+
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', themeColor);
   }, [theme]);
 
   const toggleTheme = () => {

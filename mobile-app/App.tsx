@@ -13,7 +13,7 @@ function AppContent() {
       <View style={styles.content}>
         <WebFrontendScreen path={webPath} />
       </View>
-      <StatusBar style="auto" />
+      <StatusBar style="light" backgroundColor="#150a24" />
     </View>
   )
 }
@@ -29,7 +29,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#150a24',
   },
   content: {
     flex: 1,

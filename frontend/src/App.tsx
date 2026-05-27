@@ -50,6 +50,7 @@ const BottomNav: React.FC = () => {
 
   return (
     <div
+      className="app-bottom-nav"
       style={{
         position: 'fixed',
         left: 0,

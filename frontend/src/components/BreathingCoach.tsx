@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { breathingService } from '../services/api';
-import PetGraphic from './PetGraphic';
+import AnimatedPetGraphic from './AnimatedPetGraphic';
 import { authService, UserProfile } from '../services/auth';
 import './BreathingCoach.css';
 
@@ -96,10 +96,10 @@ const BreathingCoach: React.FC<Props> = ({ onClose }) => {
             }}
           />
           <div className="pet-wrapper">
-            <PetGraphic 
-              animal={(user?.pet_type as any) || 'raccoon'} 
+            <AnimatedPetGraphic 
+              animal={user?.pet_type || 'raccoon'} 
               mood={phase === 'idle' ? 'focused' : 'calm'} 
-              size={140} 
+              size={180} 
             />
           </div>
         </div>
